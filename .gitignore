@@ -1,0 +1,43 @@
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.env/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Large data and models
+data/
+datasets/
+*.h5
+*.hdf5
+*.ckpt
+*.pth
+*.pt
+
+# Logs and outputs
+outputs/
+logs/
+*.log
+
+# Streamlit cache
+.streamlit/
+
+# Misc
+*.zip
+*.tar
+*.tar.gz
+
