@@ -11,6 +11,12 @@ __pycache__/
 venv/
 .env/
 
+# Virtual environments
+pcbml/
+venv/
+.env/
+
+
 # OS-specific files
 .DS_Store
 Thumbs.db
