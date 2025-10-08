@@ -27,7 +27,7 @@ Thumbs.db
 
 # Large data and models
 data/
-datasets/
+PCBData
 *.h5
 *.hdf5
 *.ckpt
