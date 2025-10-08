@@ -26,7 +26,7 @@ Thumbs.db
 .idea/
 
 # Large data and models
-data/
+
 PCBData
 *.h5
 *.hdf5
