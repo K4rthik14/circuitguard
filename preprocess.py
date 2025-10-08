@@ -62,4 +62,4 @@ if __name__ == "__main__":
     else:
         print(f"Error: Could not load sample images from {base_path}")
 
-    print("Preprocessing Test Finished.")
+    print("Preprocessing Finished.")
