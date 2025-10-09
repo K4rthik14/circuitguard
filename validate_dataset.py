@@ -2,57 +2,63 @@ import os
 import cv2
 
 # --- Config ---
-DATA_DIR = "data"
+DATA_DIR = "data/raw"
+MAP_FILE = "data/test.txt" # The map file you provided
 CLEAN_LIST_FILE = "clean_file_list.txt"
-# --- NEW: Set to True to print detailed checks for the first 5 samples ---
-DEBUG_MODE = True
 
-def validate_dataset():
-    print(f"--- Starting Validation of Dataset in '{DATA_DIR}' ---")
-    
-    all_test_files = []
-    for root, _, files in os.walk(DATA_DIR):
-        for file in files:
-            if file.endswith("_test.jpg"):
-                all_test_files.append(os.path.join(root, file))
+def validate_dataset_with_map():
+    """
+    Uses the provided map file (test.txt) to find and validate
+    all complete image pairs in the dataset.
+    """
+    print(f"--- Starting Validation using '{MAP_FILE}' ---")
 
-    if not all_test_files:
-        print("Validation Error: No test images ('_test.jpg') found.")
+    if not os.path.exists(MAP_FILE):
+        print(f"Error: Map file '{MAP_FILE}' not found. Please make sure it's in the project folder.")
         return
 
+    # Lists to keep track of files
+    error_log = []
     clean_file_basenames = []
-    errors_found = 0
-    total_pairs_count = len(all_test_files)
+    
+    # Read the map file to get the paths
+    with open(MAP_FILE, "r") as f:
+        lines = f.readlines()
 
-    print(f"Found {total_pairs_count} test images. Checking for complete pairs...")
+    print(f"Found {len(lines)} entries in the map file. Now validating each one...")
 
-    for i, test_path in enumerate(all_test_files):
-        base_path = test_path.replace("_test.jpg", "")
-        temp_path = base_path + "_temp.jpg"
-        txt_path = base_path + ".txt"
+    # Loop through each entry in the map file
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) != 2:
+            continue # Skip malformed lines
 
-        # Check for companions
-        template_exists = os.path.exists(temp_path)
-        annotation_exists = os.path.exists(txt_path)
+        image_path_from_map, annotation_path_from_map = parts
+        
+        # The map gives us the annotation path directly.
+        # We assume the image path in the map corresponds to the _test.jpg
+        # and we derive the _temp.jpg from it.
+        base_name_path = image_path_from_map.replace(".jpg", "")
+        
+        # Construct the full, real paths to the three files
+        test_path = os.path.join(DATA_DIR, base_name_path + "_test.jpg")
+        temp_path = os.path.join(DATA_DIR, base_name_path + "_temp.jpg")
+        annotation_path = os.path.join(DATA_DIR, annotation_path_from_map)
 
-        # If debug mode is on, print details for the first few files
-        if DEBUG_MODE and i < 5:
-            print(f"\n--- Debugging Sample {i+1} ---")
-            print(f"Checking Test Image: {test_path}")
-            print(f"  -> Looking for Template: {temp_path} ... Found: {template_exists}")
-            print(f"  -> Looking for Annotation: {txt_path} ... Found: {annotation_exists}")
-
-        if template_exists and annotation_exists:
-            clean_file_basenames.append(base_path)
+        # Check if all three files actually exist at those locations
+        if os.path.exists(test_path) and os.path.exists(temp_path) and os.path.exists(annotation_path):
+            # If they all exist, it's a valid pair. We save the base path.
+            clean_file_basenames.append(os.path.join(DATA_DIR, base_name_path))
         else:
-            errors_found += 1
-
+            error_log.append(f"Incomplete pair for entry: {line.strip()}")
+    
     # --- Print Final Report ---
     print("\n--- Validation Report ---")
-    print(f"Total pairs checked: {total_pairs_count}")
+    print(f"Total entries checked in map file: {len(lines)}")
     print(f"✅ Valid pairs found: {len(clean_file_basenames)}")
-    print(f"❌ Incomplete pairs found: {errors_found}")
-    
+    print(f"❌ Incomplete pairs found: {len(error_log)}")
+
+    # --- Save the Clean List ---
     if clean_file_basenames:
         with open(CLEAN_LIST_FILE, "w") as f:
             for base_path in clean_file_basenames:
@@ -61,6 +67,6 @@ def validate_dataset():
 
     print("\n--- End of Report ---")
 
+
 if __name__ == "__main__":
-    validate_dataset()
-    
+    validate_dataset_with_map()
