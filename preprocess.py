@@ -50,11 +50,14 @@ if __name__ == "__main__":
                 cv2.imwrite(save_path, roi)
         
         print(f"Saved ROIs to '{OUTPUT_DIR}'")
+        
+        #overlay visulazation
+        
 
         # Visualizing the steps
     
         plt.figure(figsize=(10, 7))
-        plt.subplot(2, 2, 4); plt.title("Original Test"); plt.imshow(test_img, cmap='gray')s
+        plt.subplot(2, 2, 4); plt.title("Original Test"); plt.imshow(test_img, cmap='gray')
         plt.subplot(2, 2, 1); plt.title("Difference"); plt.imshow(diff_img, cmap='gray')
         plt.subplot(2, 2, 2); plt.title("Thresholded"); plt.imshow(thresh_mask, cmap='gray')
         plt.subplot(2, 2, 3); plt.title("Cleaned Mask"); plt.imshow(cleaned_mask, cmap='gray')
@@ -64,3 +67,14 @@ if __name__ == "__main__":
         print(f"Error: Could not load sample images from {base_path}")
 
     #end
+    
+    
+    overlay = cv2.cvtColor(test_img, cv2.COLOR_GRAY2BGR)
+    contours, _ = cv2.findContours(cleaned_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        if cv2.contourArea(c) > 20:
+            x, y, w, h = cv2.boundingRect(c)
+            cv2.rectangle(overlay, (x,y), (x+w,y+h), (0,0,255), 2)
+    plt.imshow(overlay)
+    plt.title("Defects Highlighted")
+    plt.show()

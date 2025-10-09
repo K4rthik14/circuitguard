@@ -43,7 +43,6 @@ def read_annotations(txt_path):
 
 # --- Main Script ---
 if __name__ == "__main__":
-    print("Starting EDA...")
 
     # Find all the group folders
     groups = [g for g in os.listdir(DATA_DIR) if g.startswith("group")]
