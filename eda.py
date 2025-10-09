@@ -6,7 +6,7 @@ import random
 
 # --- Config ---
 DATA_DIR = "data"
-IMG_DISPLAY_SIZE = (256, 256)
+IMG_DISPLAY_SIZE = (640, 640)
 IMG_ORIGINAL_SIZE = (640, 640)
 
 # Function to load an image

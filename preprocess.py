@@ -3,13 +3,12 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-# --- Config ---
+#Configuration
 DATA_DIR = "data"
 OUTPUT_DIR = os.path.join("outputs", "rois")
 
-# --- Main Script ---
+#Main Script
 if __name__ == "__main__":
-    print("Starting Preprocessing Test...")
 
     # Define a sample to test the pipeline on
     sample_base_name = "00041002"
@@ -52,14 +51,16 @@ if __name__ == "__main__":
         
         print(f"Saved ROIs to '{OUTPUT_DIR}'")
 
-        # 7. Visualize the steps
+        # Visualizing the steps
+    
         plt.figure(figsize=(10, 7))
-        plt.subplot(2, 2, 1); plt.title("1. Difference"); plt.imshow(diff_img, cmap='gray')
-        plt.subplot(2, 2, 2); plt.title("2. Thresholded"); plt.imshow(thresh_mask, cmap='gray')
-        plt.subplot(2, 2, 3); plt.title("3. Cleaned Mask"); plt.imshow(cleaned_mask, cmap='gray')
-        plt.subplot(2, 2, 4); plt.title("4. Original Test"); plt.imshow(test_img, cmap='gray')
+        plt.subplot(2, 2, 4); plt.title("Original Test"); plt.imshow(test_img, cmap='gray')s
+        plt.subplot(2, 2, 1); plt.title("Difference"); plt.imshow(diff_img, cmap='gray')
+        plt.subplot(2, 2, 2); plt.title("Thresholded"); plt.imshow(thresh_mask, cmap='gray')
+        plt.subplot(2, 2, 3); plt.title("Cleaned Mask"); plt.imshow(cleaned_mask, cmap='gray')
+        
         plt.tight_layout(); plt.show()
     else:
         print(f"Error: Could not load sample images from {base_path}")
 
-    print("Preprocessing Finished.")
+    #end
