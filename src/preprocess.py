@@ -33,7 +33,7 @@ if __name__ == "__main__":
         temp_path = os.path.join(folder, name + "_temp.jpg")
         test_path = os.path.join(folder, name + "_test.jpg")
 
-        print("Selected:", name)
+        print("Selected")
 
     except Exception as e:
         print("Error finding sample:", e)
@@ -44,16 +44,21 @@ if __name__ == "__main__":
     test = cv2.imread(test_path, cv2.IMREAD_GRAYSCALE)
 
     if temp is None or test is None:
-        print("Error loading images for", name)
+        print("Error loading images")
         exit()
-
+        
+    
+    
+    #### PIPE LINE
+    
+    
     # difference
     diff = cv2.absdiff(temp, test)
 
     # threshold (Otsu)
     _, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    # cleaning mask a bit
+    # cleaning mask
     kernel = np.ones((3, 3), np.uint8)
     mask_clean = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=2)
     mask_clean = cv2.morphologyEx(mask_clean, cv2.MORPH_CLOSE, kernel, iterations=1)

@@ -14,11 +14,11 @@ img_size = (640, 640)
 def load_img(path):
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     if img is None:
-        print("Could not load image:", path)
+        print("Couldn't load image")
         return None
     img = cv2.resize(img, img_size)
     return img
-
+#box read
 def read_boxes(txt_path):
     boxes = []
     if not os.path.exists(txt_path):
@@ -36,10 +36,10 @@ def read_boxes(txt_path):
 
 
 if __name__ == "__main__":
-    print("Running script...")
+
 
     if not os.path.exists(map_file):
-        print("Map file not found:", map_file)
+        print("Map file not found:")
         exit()
 
     # read all image pairs
@@ -53,7 +53,6 @@ if __name__ == "__main__":
     # pick one random pair
     random_line = random.choice(lines).strip().split()
     if len(random_line) != 2:
-        print("Invalid line format.")
         exit()
 
     img_path, txt_rel_path = random_line
@@ -74,12 +73,12 @@ if __name__ == "__main__":
         print("Image loading failed.")
         exit()
 
-    # show both images
+    # template img
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
     plt.imshow(temp, cmap='gray')
     plt.title("Template")
-
+      # test img
     plt.subplot(1, 2, 2)
     plt.imshow(test, cmap='gray')
     plt.title("Test")
@@ -97,4 +96,4 @@ if __name__ == "__main__":
     else:
         print("No boxes found in txt file.")
 
-    print("Done.")
+#END
