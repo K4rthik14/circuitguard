@@ -3,13 +3,11 @@ import cv2
 
 # --- Config ---
 DATA_DIR = "data"
-# The script will save the list of good files here
 CLEAN_LIST_FILE = "clean_file_list.txt"
+# --- NEW: Set to True to print detailed checks for the first 5 samples ---
+DEBUG_MODE = True
 
-def validate_and_clean_dataset():
-    """
-    Scans the dataset for issues and generates a clean list of valid file paths.
-    """
+def validate_dataset():
     print(f"--- Starting Validation of Dataset in '{DATA_DIR}' ---")
     
     all_test_files = []
@@ -19,45 +17,50 @@ def validate_and_clean_dataset():
                 all_test_files.append(os.path.join(root, file))
 
     if not all_test_files:
-        print("Validation Error: No test images found.")
+        print("Validation Error: No test images ('_test.jpg') found.")
         return
 
-    # Lists for problems and for the good files
-    error_log = []
     clean_file_basenames = []
+    errors_found = 0
     total_pairs_count = len(all_test_files)
 
-    print(f"Found {total_pairs_count} test images. Checking each pair...")
+    print(f"Found {total_pairs_count} test images. Checking for complete pairs...")
 
-    for test_path in all_test_files:
+    for i, test_path in enumerate(all_test_files):
         base_path = test_path.replace("_test.jpg", "")
         temp_path = base_path + "_temp.jpg"
         txt_path = base_path + ".txt"
 
-        # Check for missing files
-        if not os.path.exists(temp_path):
-            error_log.append(f"[Missing Template] {test_path}")
-            continue
-        if not os.path.exists(txt_path):
-            error_log.append(f"[Missing Annotation] {test_path}")
-            continue
+        # Check for companions
+        template_exists = os.path.exists(temp_path)
+        annotation_exists = os.path.exists(txt_path)
 
-        # Check for corrupted images
-        test_img = cv2.imread(test_path)
-        if test_img is None:
-            error_log.append(f"[Corrupted Image] {test_path}")
-            continue
+        # If debug mode is on, print details for the first few files
+        if DEBUG_MODE and i < 5:
+            print(f"\n--- Debugging Sample {i+1} ---")
+            print(f"Checking Test Image: {test_path}")
+            print(f"  -> Looking for Template: {temp_path} ... Found: {template_exists}")
+            print(f"  -> Looking for Annotation: {txt_path} ... Found: {annotation_exists}")
 
-        # If all checks pass, add the base path to our clean list
-        clean_file_basenames.append(base_path)
+        if template_exists and annotation_exists:
+            clean_file_basenames.append(base_path)
+        else:
+            errors_found += 1
 
     # --- Print Final Report ---
     print("\n--- Validation Report ---")
     print(f"Total pairs checked: {total_pairs_count}")
     print(f"✅ Valid pairs found: {len(clean_file_basenames)}")
-    print(f"❌ Problematic pairs found: {len(error_log)}")
+    print(f"❌ Incomplete pairs found: {errors_found}")
+    
+    if clean_file_basenames:
+        with open(CLEAN_LIST_FILE, "w") as f:
+            for base_path in clean_file_basenames:
+                f.write(base_path + "\n")
+        print(f"\n🎉 Successfully created a clean list at '{CLEAN_LIST_FILE}'")
 
-    if error_log:
-        print("\n-- Error Details --")
-        for error in error_log[:20]: # Print first 20 errors to avoid flooding the screen
-            print
+    print("\n--- End of Report ---")
+
+if __name__ == "__main__":
+    validate_dataset()
+    
