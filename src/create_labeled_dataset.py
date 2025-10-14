@@ -2,7 +2,6 @@ import os
 import cv2
 
 # --- File and Folder Paths ---
-# This setup assumes the script is in the 'src' folder
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 data_dir = os.path.join(project_root, 'data', 'raw')
 map_file = os.path.join(project_root, 'data', 'test.txt')
@@ -26,18 +25,17 @@ if __name__ == "__main__":
         print(f"Error: '{clean_file_list}' not found. Please run validate_dataset.py first.")
         exit()
 
-    # Create a fast lookup map from test.txt, ensuring all keys use forward slashes
+    # Create a fast lookup map from test.txt
     annotation_map = {}
     with open(map_file, 'r') as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) == 2:
-                # Normalize the key by replacing any backslashes
                 key = parts[0].replace('\\', '/')
                 value = parts[1].replace('\\', '/')
                 annotation_map[key] = value
 
-    # Create output folders
+    # Create output folders for each defect type
     for defect_name in DEFECT_MAP.values():
         os.makedirs(os.path.join(output_dir, defect_name), exist_ok=True)
 
@@ -47,39 +45,30 @@ if __name__ == "__main__":
     print(f"Found {len(valid_base_paths)} valid image pairs to process.")
 
     total_rois_saved = 0
-    # Loop through each valid base path from the clean list
+    # Loop through each valid base path
     for base_path in valid_base_paths:
         
-        # --- THIS IS THE ROBUST PATH CORRECTION ---
-        # 1. Normalize the path from the clean list to use only forward slashes
+        # Normalize the path from the clean list to create a lookup key
         normalized_path = base_path.replace('\\', '/')
-        # 2. Get the part of the path that matches the map key format (e.g., "group...")
         try:
-            # Find the starting position of "group"
-            key_start_index = normalized_path.find('group')
-            if key_start_index == -1:
-                continue # Skip if "group" isn't in the path
-            
-            key_part = normalized_path[key_start_index:]
+            key_part_start = normalized_path.find('group')
+            if key_part_start == -1:
+                continue
+            key_part = normalized_path[key_part_start:]
+            image_map_key = key_part + '.jpg'
         except Exception:
-            print(f"Warning: Unexpected path format in clean_file_list: {base_path}. Skipping.")
             continue
-        # 3. Create the final key for the map
-        image_map_key = key_part + '.jpg'
-        # --- END OF CORRECTION ---
 
-        # Instantly find the annotation path from the map
+        # Find the annotation path from the map
         annotation_rel_path = annotation_map.get(image_map_key)
 
         if not annotation_rel_path:
-            # This warning will tell us if a match is still failing
-            # print(f"Warning: Could not find annotation for key '{image_map_key}' in map. Skipping.")
             continue
 
         test_path = base_path + "_test.jpg"
         txt_path = os.path.join(data_dir, annotation_rel_path)
 
-        # Load the image and process annotations
+        # Load the image and process its annotations
         test_img = cv2.imread(test_path)
         if test_img is None:
             continue
@@ -91,11 +80,11 @@ if __name__ == "__main__":
                     x1, y1, x2, y2, defect_id = map(int, parts)
                     defect_name = DEFECT_MAP.get(defect_id)
                     if defect_name:
+                        # Crop the defect and save it to the correct folder
                         roi = test_img[y1:y2, x1:x2]
-                        img_name = os.path.basename(base_path)
-                        # Ensure ROI is valid before saving
                         if roi.size > 0:
-                            roi_filename = f"{img_name}_roi_{total_rois_saved}.jpg" # Save as JPG
+                            img_name = os.path.basename(base_path)
+                            roi_filename = f"{img_name}_roi_{total_rois_saved}.jpg"
                             save_path = os.path.join(output_dir, defect_name, roi_filename)
                             cv2.imwrite(save_path, roi)
                             total_rois_saved += 1
