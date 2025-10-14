@@ -1,20 +1,17 @@
 import os
 import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-import random
 
-# setting up folder paths
+# --- File and Folder Paths ---
+# This setup assumes the script is in the 'src' folder
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 data_dir = os.path.join(project_root, 'data', 'raw')
 map_file = os.path.join(project_root, 'data', 'test.txt')
-clean_file_list = os.path.join(project_root, 'clean_file_list.txt') # Path to your clean list
+clean_file_list = os.path.join(project_root, 'clean_file_list.txt')
+output_dir = os.path.join(project_root, 'outputs', 'labeled_rois')
 
-img_size = (640, 640)
-
-# Map defect IDs to readable names
+# --- Defect Type Mapping ---
 DEFECT_MAP = {
-    1: 'open', 
+    1: 'open',
     2: 'short',
     3: 'mousebite',
     4: 'spur',
@@ -22,75 +19,80 @@ DEFECT_MAP = {
     6: 'pin-hole'
 }
 
+if __name__ == "__main__":
+    print("--- Starting Labeled ROI Generation (Module 2) ---")
 
-def load_img(path):
-    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        print("Could not load image:", path)
-        return None
-    img = cv2.resize(img, img_size)
-    return img
-
-def read_boxes(txt_path):
-    boxes = []
-    if not os.path.exists(txt_path):
-        return boxes
-    
-    with open(txt_path, "r") as f:
-        for line in f:
-            # This handles both comma and space separators
-            parts = line.strip().replace(',', ' ').split()
-            if len(parts) == 5:
-                x1, y1, x2, y2, _ = map(int, parts)
-                w = x2 - x1
-                h = y2 - y1
-                boxes.append((x1, y1, w, h))
-    return boxes
-
-
-
-    # Generate Defect Distribution Graph
     if not os.path.exists(clean_file_list):
         print(f"Error: '{clean_file_list}' not found. Please run the validation script first.")
-    else:
-        with open(clean_file_list, "r") as f:
-            valid_base_paths = [line.strip() for line in f]
+        exit()
+
+    # Create a fast lookup map from test.txt, ensuring all keys use forward slashes
+    annotation_map = {}
+    with open(map_file, 'r') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) == 2:
+                # Normalize the key by replacing any backslashes
+                key = parts[0].replace('\\', '/')
+                value = parts[1].replace('\\', '/')
+                annotation_map[key] = value
+
+    # Create output folders
+    for defect_name in DEFECT_MAP.values():
+        os.makedirs(os.path.join(output_dir, defect_name), exist_ok=True)
+
+    with open(clean_file_list, "r") as f:
+        valid_base_paths = [line.strip() for line in f]
+
+    print(f"Found {len(valid_base_paths)} valid image pairs to process.")
+
+    total_rois_saved = 0
+    # Loop through each valid base path from the clean list
+    for base_path in valid_base_paths:
         
-        defect_counts = {name: 0 for name in DEFECT_MAP.values()}
+        # --- THIS IS THE ROBUST PATH CORRECTION ---
+        # 1. Normalize the path from the clean list to use only forward slashes
+        normalized_path = base_path.replace('\\', '/')
+        # 2. Get the part of the path relative to the 'data/raw' directory
+        try:
+            relative_key_part = os.path.relpath(normalized_path, os.path.join(project_root, 'data', 'raw')).replace('\\', '/')
+        except ValueError:
+            print(f"Warning: Unexpected path format in clean_file_list: {base_path}. Skipping.")
+            continue
+        # 3. Create the final key for the map
+        image_map_key = relative_key_part + '.jpg'
+        # --- END OF CORRECTION ---
 
-        # Loop through each valid file to find its annotation and count defects
-        for base_path in valid_base_paths:
-            img_name_no_dir = os.path.basename(base_path)
-            
-            with open(map_file, "r") as map_f:
-                for line in map_f:
-                    if img_name_no_dir in line:
-                        parts = line.strip().split()
-                        if len(parts) == 2:
-                            annotation_rel_path = parts[1]
-                            txt_path = os.path.join(data_dir, annotation_rel_path)
-                            
-                            with open(txt_path, "r") as ann_f:
-                                for ann_line in ann_f:
-                                    ann_parts = ann_line.strip().split(',')
-                                    if len(ann_parts) == 5:
-                                        defect_id = int(ann_parts[4])
-                                        defect_name = DEFECT_MAP.get(defect_id)
-                                        if defect_name:
-                                            defect_counts[defect_name] += 1
-                            break
+        # Instantly find the annotation path from the map
+        annotation_rel_path = annotation_map.get(image_map_key)
 
-        # Create and show the bar chart
-        names = list(defect_counts.keys())
-        counts = list(defect_counts.values())
+        if not annotation_rel_path:
+            # This warning will tell us if a match is still failing
+            print(f"Warning: Could not find annotation for key '{image_map_key}' in map. Skipping.")
+            continue
 
-        plt.figure(figsize=(10, 6))
-        plt.bar(names, counts, color='skyblue')
-        plt.title('Distribution of Defect Types in Dataset')
-        plt.xlabel('Defect Type')
-        plt.ylabel('Count')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.show()
+        test_path = base_path + "_test.jpg"
+        txt_path = os.path.join(data_dir, annotation_rel_path)
 
-    print("\nEDA Done.")
+        # Load the image and process annotations
+        test_img = cv2.imread(test_path)
+        if test_img is None:
+            continue
+
+        with open(txt_path, "r") as f:
+            for line in f:
+                parts = line.strip().split(',')
+                if len(parts) == 5:
+                    x1, y1, x2, y2, defect_id = map(int, parts)
+                    defect_name = DEFECT_MAP.get(defect_id)
+                    if defect_name:
+                        roi = test_img[y1:y2, x1:x2]
+                        img_name = os.path.basename(base_path)
+                        roi_filename = f"{img_name}_roi_{total_rois_saved}.jpg" # Save as JPG
+                        save_path = os.path.join(output_dir, defect_name, roi_filename)
+                        cv2.imwrite(save_path, roi)
+                        total_rois_saved += 1
+
+    print(f"\n--- Processing Complete ---")
+    print(f"Successfully generated and saved {total_rois_saved} labeled ROIs.")
+    print(f"Your dataset for Module 3 is ready in: '{output_dir}'")
