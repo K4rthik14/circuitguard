@@ -76,7 +76,7 @@ if __name__ == "__main__":
         if area > 20:
             x, y, w, h = cv2.boundingRect(cnt)
             roi = test[y:y+h, x:x+w]
-            save_path = os.path.join(output_dir, f"{name}_roi_{i}.png")
+            save_path = os.path.join(output_dir, f"{name}_roi_{i}.jpeg")
             cv2.imwrite(save_path, roi)
             cv2.rectangle(overlay, (x, y), (x + w, y + h), (0, 0, 255), 2)
             i += 1

@@ -2,7 +2,7 @@ import os
 import cv2
 
 # --- File and Folder Paths ---
-# This setup assumes the script is in the 'src' folder
+# Assumes the script is in the 'src' folder
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 data_dir = os.path.join(project_root, 'data', 'raw')
 map_file = os.path.join(project_root, 'data', 'test.txt')
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     with open(map_file, "r") as f:
         lines = f.readlines()
 
-    print(f"Found {len(lines)} entries in the map file. Processing all valid pairs...")
+    print(f"Found {len(lines)} entries in map file. Processing all valid pairs...")
 
     total_rois_saved = 0
     # Loop through each line in the map file, which is our source of truth
@@ -82,3 +82,4 @@ if __name__ == "__main__":
     print(f"\n--- Processing Complete ---")
     print(f"Successfully generated and saved {total_rois_saved} labeled ROIs.")
     print(f"Your dataset for Module 3 is ready in: '{output_dir}'")
+    
