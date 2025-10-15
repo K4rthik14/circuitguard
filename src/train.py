@@ -10,7 +10,7 @@ import os
 # This setup assumes the script is in the 'src' folder
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 # Make sure this path points to your folder with the labeled JPEGs
-data_dir = os.path.join(project_root, 'outputs', 'labeled_rois_jpeg') 
+data_dir = os.path.join(project_root, 'outputs', 'all_unlabeled_rois_jpeg') 
 
 # --- 1. Data Loading and Preparation ---
 
