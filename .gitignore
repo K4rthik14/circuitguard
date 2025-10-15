@@ -35,7 +35,7 @@ PCBData
 *.pt
 
 # Logs and outputs
-outputs/
+#outputs/
 logs/
 *.log
 
