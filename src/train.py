@@ -46,7 +46,7 @@ def main():
     model = timm.create_model('efficientnet_b4', pretrained=True, num_classes=num_classes)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0005)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.7)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -55,7 +55,7 @@ def main():
 
     # --- Training Setup ---
     # --- NEW: Increased epochs for better training ---
-    num_epochs = 25
+    num_epochs = 35
     scaler = GradScaler()
     train_losses, val_accuracies = [], []
 
@@ -94,9 +94,13 @@ def main():
         print(f"✅ Epoch [{epoch+1}/{num_epochs}] - Loss: {epoch_loss:.4f} | Val Accuracy: {epoch_acc:.2f}%")
 
     # --- Save Model ---
-    torch.save(model.state_dict(), model_save_path)
-    print(f"\n💾 Model saved to: {model_save_path}")
+    # --- Save Model ---
+# Create a unique filename with the final accuracy
+    final_accuracy = val_accuracies[-1]
+    new_model_save_path = os.path.join(project_root, f'pcb_classifier_epochs{num_epochs}_acc{final_accuracy:.2f}.pth')
 
+    torch.save(model.state_dict(), new_model_save_path)
+    print(f"\n💾 Model saved to: {new_model_save_path}")
     # --- Generate and Save Graphs ---
     # Plot 1: Training Loss and Validation Accuracy
     plt.figure(figsize=(12, 5))
