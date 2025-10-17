@@ -13,17 +13,15 @@ def main():
     # --- Configuration ---
     project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
     data_dir = os.path.join(project_root, 'outputs', 'labeled_rois_jpeg')
-    model_save_path = os.path.join(project_root, 'pcb_defect_classifier.pth')
-
-    # --- Data Preparation (with more augmentation) ---
+    
+    # --- Data Preparation (with more aggressive augmentation) ---
     data_transforms = transforms.Compose([
-        transforms.Resize((128, 128)),
-        # --- NEW: More robust data augmentation ---
+        # This forces the model to learn from different parts of the image
+        transforms.RandomResizedCrop(size=128, scale=(0.8, 1.0)),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomRotation(15),
-        transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
-        # --- End of new augmentations ---
+        # Stronger color jitter
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225])
@@ -46,7 +44,8 @@ def main():
     model = timm.create_model('efficientnet_b4', pretrained=True, num_classes=num_classes)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    # --- Reverted to the better learning rate ---
+    optimizer = optim.Adam(model.parameters(), lr=0.0005)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.7)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -54,7 +53,7 @@ def main():
     print(f"🚀 Using device: {device}")
 
     # --- Training Setup ---
-    # --- NEW: Increased epochs for better training ---
+    # --- Increased epochs for longer training ---
     num_epochs = 35
     scaler = GradScaler()
     train_losses, val_accuracies = [], []
@@ -93,14 +92,12 @@ def main():
 
         print(f"✅ Epoch [{epoch+1}/{num_epochs}] - Loss: {epoch_loss:.4f} | Val Accuracy: {epoch_acc:.2f}%")
 
-    # --- Save Model ---
-    # --- Save Model ---
-# Create a unique filename with the final accuracy
+    # --- Save Model with a unique name ---
     final_accuracy = val_accuracies[-1]
-    new_model_save_path = os.path.join(project_root, f'pcb_classifier_epochs{num_epochs}_acc{final_accuracy:.2f}.pth')
+    model_save_path = os.path.join(project_root, f'pcb_classifier_epochs{num_epochs}_acc{final_accuracy:.2f}.pth')
+    torch.save(model.state_dict(), model_save_path)
+    print(f"\n💾 Model saved to: {model_save_path}")
 
-    torch.save(model.state_dict(), new_model_save_path)
-    print(f"\n💾 Model saved to: {new_model_save_path}")
     # --- Generate and Save Graphs ---
     # Plot 1: Training Loss and Validation Accuracy
     plt.figure(figsize=(12, 5))
@@ -117,14 +114,13 @@ def main():
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy (%)")
     plt.legend()
-
     plt.tight_layout()
     graph_path = os.path.join(project_root, 'training_performance.png')
     plt.savefig(graph_path)
     print(f"📈 Saved training performance graph to: {graph_path}")
     plt.show()
 
-    # --- NEW: Generate and Save Confusion Matrix ---
+    # Plot 2: Confusion Matrix
     print("\nGenerating confusion matrix...")
     all_preds = []
     all_labels = []
@@ -139,7 +135,6 @@ def main():
 
     cm = confusion_matrix(all_labels, all_preds)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=dataset.classes)
-
     fig, ax = plt.subplots(figsize=(8, 8))
     disp.plot(ax=ax, cmap=plt.cm.Blues)
     plt.title("Confusion Matrix")
@@ -148,7 +143,6 @@ def main():
     plt.savefig(cm_path)
     print(f"📈 Saved confusion matrix to: {cm_path}")
     plt.show()
-
 
 if __name__ == '__main__':
     main()
