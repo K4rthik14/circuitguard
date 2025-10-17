@@ -34,8 +34,8 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=0)
 
-    print(f"✅ Dataset loaded with classes: {dataset.classes}")
-    print(f"📊 Train: {len(train_dataset)} | Val: {len(val_dataset)}")
+    print(f"Dataset loaded with classes: {dataset.classes}")
+    print(f"Train: {len(train_dataset)} | Val: {len(val_dataset)}")
 
     # --- Model Setup ---
     num_classes = len(dataset.classes)
@@ -102,11 +102,11 @@ def main():
         val_accuracies.append(epoch_acc)
         scheduler.step()
 
-        print(f"✅ Epoch [{epoch+1}/{num_epochs}] - Loss: {epoch_loss:.4f} | Val Accuracy: {epoch_acc:.2f}%")
+        print(f" Epoch [{epoch+1}/{num_epochs}] - Loss: {epoch_loss:.4f} | Val Accuracy: {epoch_acc:.2f}%")
 
     # --- Save Model ---
     torch.save(model.state_dict(), model_save_path)
-    print(f"\n💾 Model saved to: {model_save_path}")
+    print(f"\nModel saved to: {model_save_path}")
 
     # --- Graphs ---
     plt.figure(figsize=(10, 5))
@@ -127,7 +127,7 @@ def main():
     plt.tight_layout()
     graph_path = os.path.join(project_root, 'training_performance.png')
     plt.savefig(graph_path)
-    print(f"📈 Saved training graph to: {graph_path}")
+    print(f" Saved training graph to: {graph_path}")
     plt.show()
 
 
