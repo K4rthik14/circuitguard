@@ -8,18 +8,38 @@ import torch.optim as optim
 from torch.cuda.amp import GradScaler, autocast
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import torch.nn.functional as F
+
+# --- Focal Loss Implementation ---
+# A smarter loss function to handle hard-to-classify examples
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, inputs, targets):
+        ce_loss = F.cross_entropy(inputs, targets, reduction='none')
+        pt = torch.exp(-ce_loss)
+        focal_loss = self.alpha * (1-pt)**self.gamma * ce_loss
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
 
 def main():
     # --- Configuration ---
     project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
     data_dir = os.path.join(project_root, 'outputs', 'labeled_rois_jpeg')
 
-    # --- Data Preparation (Using stable augmentation) ---
+    # --- Data Preparation (with advanced augmentation) ---
     data_transforms = transforms.Compose([
         transforms.Resize((128, 128)),
-        # Simpler augmentations that proved more stable
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomRotation(10),
+        # Using TrivialAugment for better and more varied augmentation
+        transforms.TrivialAugmentWide(),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225])
@@ -39,27 +59,29 @@ def main():
 
     # --- Model Setup ---
     num_classes = len(dataset.classes)
-    model = timm.create_model('efficientnet_b4', pretrained=True, num_classes=num_classes)
+    model = timm.create_model('efficientnet_b4', pretrained=True, num_classes=num_classes) [cite: 141]
 
-    criterion = nn.CrossEntropyLoss()
-    # Using the learning rate that performed better
-    optimizer = optim.Adam(model.parameters(), lr=0.0005)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.7)
+    # Using Focal Loss instead of CrossEntropyLoss
+    criterion = FocalLoss()
+    # Optimizer with weight decay to prevent overfitting
+    optimizer = optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-5) [cite: 143]
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.7)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     print(f"🚀 Using device: {device}")
 
     # --- Training Setup ---
-    # Training for longer to allow for convergence
-    num_epochs = 35
+    # Increased epochs for more thorough training
+    num_epochs = 50
     scaler = GradScaler()
     train_losses, val_accuracies = [], []
+    best_accuracy = 0.0
 
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
-        for batch_idx, (images, labels) in enumerate(train_loader):
+        for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             with autocast():
@@ -89,39 +111,32 @@ def main():
         scheduler.step()
 
         print(f"✅ Epoch [{epoch+1}/{num_epochs}] - Loss: {epoch_loss:.4f} | Val Accuracy: {epoch_acc:.2f}%")
+        
+        # Save the model only if its performance has improved
+        if epoch_acc > best_accuracy:
+            best_accuracy = epoch_acc
+            best_model_path = os.path.join(project_root, f'best_model_acc_{best_accuracy:.2f}.pth')
+            torch.save(model.state_dict(), best_model_path)
+            print(f"⭐ New best model saved to: {best_model_path}")
 
-    # --- Save Model with a unique name ---
-    final_accuracy = val_accuracies[-1]
-    model_save_path = os.path.join(project_root, f'pcb_classifier_epochs{num_epochs}_acc{final_accuracy:.2f}.pth')
-    torch.save(model.state_dict(), model_save_path)
-    print(f"\n💾 Model saved to: {model_save_path}")
+    print(f"\n--- Training Finished ---")
+    print(f"Highest validation accuracy achieved: {best_accuracy:.2f}%")
 
     # --- Generate and Save Graphs ---
-    # Plot 1: Training Loss and Validation Accuracy
     plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)
-    plt.plot(train_losses, label='Training Loss', marker='o')
-    plt.title("Training Loss per Epoch")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-
+    plt.plot(train_losses, label='Training Loss'); plt.title("Training Loss"); plt.xlabel("Epoch"); plt.ylabel("Loss"); plt.legend()
     plt.subplot(1, 2, 2)
-    plt.plot(val_accuracies, label='Validation Accuracy', color='green', marker='o')
-    plt.title("Validation Accuracy per Epoch")
-    plt.xlabel("Epoch")
-    plt.ylabel("Accuracy (%)")
-    plt.legend()
+    plt.plot(val_accuracies, label='Validation Accuracy', color='g'); plt.title("Validation Accuracy"); plt.xlabel("Epoch"); plt.ylabel("Accuracy (%)"); plt.legend()
     plt.tight_layout()
-    graph_path = os.path.join(project_root, 'training_performance.png')
-    plt.savefig(graph_path)
-    print(f"📈 Saved training performance graph to: {graph_path}")
+    plt.savefig(os.path.join(project_root, 'final_training_performance.png'))
     plt.show()
 
-    # Plot 2: Confusion Matrix
-    print("\nGenerating confusion matrix...")
-    all_preds = []
-    all_labels = []
+    # --- Generate Confusion Matrix ---
+    print("\nGenerating final confusion matrix...")
+    all_preds, all_labels = [], []
+    # Load the best performing model for the final evaluation
+    model.load_state_dict(torch.load(best_model_path))
     model.eval()
     with torch.no_grad():
         for images, labels in val_loader:
@@ -135,11 +150,8 @@ def main():
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=dataset.classes)
     fig, ax = plt.subplots(figsize=(8, 8))
     disp.plot(ax=ax, cmap=plt.cm.Blues)
-    plt.title("Confusion Matrix")
-    plt.xticks(rotation=45)
-    cm_path = os.path.join(project_root, 'confusion_matrix.png')
-    plt.savefig(cm_path)
-    print(f"📈 Saved confusion matrix to: {cm_path}")
+    plt.title("Final Confusion Matrix"); plt.xticks(rotation=45)
+    plt.savefig(os.path.join(project_root, 'final_confusion_matrix.png'))
     plt.show()
 
 if __name__ == '__main__':

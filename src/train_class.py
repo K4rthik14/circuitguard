@@ -4,12 +4,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import autocast, GradScaler
 from timm import create_model
 from timm.utils import ModelEmaV2
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 def main():
     # --- Paths ---
@@ -64,9 +65,9 @@ def main():
     criterion = nn.CrossEntropyLoss(weight=weights_tensor)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
-    scaler = GradScaler()
+    scaler = GradScaler("cuda")
 
-    # --- EMA (stabilizes training) ---
+    # --- EMA (Exponential Moving Average of weights) ---
     ema_model = ModelEmaV2(model, decay=0.9999, device=device)
     print(f"🚀 Using device: {device}")
 
@@ -82,14 +83,14 @@ def main():
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
 
-            with autocast():
+            with autocast("cuda"):
                 outputs = model(images)
                 loss = criterion(outputs, labels)
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-            ema_model.update(model)  # update EMA weights
+            ema_model.update(model)  # keep EMA weights synced
 
             running_loss += loss.item() * images.size(0)
 
@@ -97,12 +98,12 @@ def main():
         train_losses.append(epoch_loss)
 
         # --- Validation ---
-        model.eval()
+        ema_model.module.eval()  # <-- Fixed
         correct, total = 0, 0
         with torch.no_grad():
             for images, labels in val_loader:
                 images, labels = images.to(device), labels.to(device)
-                outputs = ema_model.ema(images)  # use EMA weights for validation
+                outputs = ema_model.module(images)  # <-- Fixed
                 _, preds = torch.max(outputs, 1)
                 total += labels.size(0)
                 correct += (preds == labels).sum().item()
@@ -117,7 +118,7 @@ def main():
         if epoch_acc > best_acc:
             best_acc = epoch_acc
             model_path = os.path.join(project_root, f'best_model_acc{best_acc:.2f}.pth')
-            torch.save(ema_model.ema.state_dict(), model_path)
+            torch.save(ema_model.module.state_dict(), model_path)
             print(f"💾 Saved best model: {model_path}")
 
     print(f"\n🎯 Training complete! Best Accuracy: {best_acc:.2f}%")
@@ -140,11 +141,11 @@ def main():
     # --- Confusion Matrix ---
     print("\n📊 Generating confusion matrix...")
     all_preds, all_labels = [], []
-    ema_model.ema.eval()
+    ema_model.module.eval()
     with torch.no_grad():
         for images, labels in val_loader:
             images, labels = images.to(device), labels.to(device)
-            outputs = ema_model.ema(images)
+            outputs = ema_model.module(images)
             _, preds = torch.max(outputs, 1)
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
@@ -156,6 +157,7 @@ def main():
     plt.title("Confusion Matrix")
     plt.savefig(os.path.join(project_root, "confusion_matrix.png"))
     plt.show()
+
 
 if __name__ == "__main__":
     main()
