@@ -13,15 +13,14 @@ def main():
     # --- Configuration ---
     project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
     data_dir = os.path.join(project_root, 'outputs', 'labeled_rois_jpeg')
-    
-    # --- Data Preparation (with more aggressive augmentation) ---
+
+    # --- Data Preparation (Reverted to simpler, more stable augmentation) ---
     data_transforms = transforms.Compose([
-        # This forces the model to learn from different parts of the image
-        transforms.RandomResizedCrop(size=128, scale=(0.8, 1.0)),
+        transforms.Resize((128, 128)),
+        # --- Simpler and more effective augmentations ---
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomRotation(15),
-        # Stronger color jitter
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.RandomRotation(10),
+        # --- End of changes ---
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225])
@@ -44,8 +43,7 @@ def main():
     model = timm.create_model('efficientnet_b4', pretrained=True, num_classes=num_classes)
 
     criterion = nn.CrossEntropyLoss()
-    # --- Reverted to the better learning rate ---
-    optimizer = optim.Adam(model.parameters(), lr=0.0005)
+    optimizer = optim.Adam(model.parameters(), lr=0.0005) # Keep the good learning rate
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.7)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,8 +51,7 @@ def main():
     print(f"🚀 Using device: {device}")
 
     # --- Training Setup ---
-    # --- Increased epochs for longer training ---
-    num_epochs = 35
+    num_epochs = 35 # Keep the longer training time
     scaler = GradScaler()
     train_losses, val_accuracies = [], []
 
@@ -92,14 +89,13 @@ def main():
 
         print(f"✅ Epoch [{epoch+1}/{num_epochs}] - Loss: {epoch_loss:.4f} | Val Accuracy: {epoch_acc:.2f}%")
 
-    # --- Save Model with a unique name ---
+    # --- Save Model ---
     final_accuracy = val_accuracies[-1]
     model_save_path = os.path.join(project_root, f'pcb_classifier_epochs{num_epochs}_acc{final_accuracy:.2f}.pth')
     torch.save(model.state_dict(), model_save_path)
     print(f"\n💾 Model saved to: {model_save_path}")
 
-    # --- Generate and Save Graphs ---
-    # Plot 1: Training Loss and Validation Accuracy
+    # --- Generate Graphs ---
     plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)
     plt.plot(train_losses, label='Training Loss', marker='o')
@@ -115,13 +111,9 @@ def main():
     plt.ylabel("Accuracy (%)")
     plt.legend()
     plt.tight_layout()
-    graph_path = os.path.join(project_root, 'training_performance.png')
-    plt.savefig(graph_path)
-    print(f"📈 Saved training performance graph to: {graph_path}")
     plt.show()
 
-    # Plot 2: Confusion Matrix
-    print("\nGenerating confusion matrix...")
+    # --- Generate Confusion Matrix ---
     all_preds = []
     all_labels = []
     model.eval()
@@ -139,9 +131,6 @@ def main():
     disp.plot(ax=ax, cmap=plt.cm.Blues)
     plt.title("Confusion Matrix")
     plt.xticks(rotation=45)
-    cm_path = os.path.join(project_root, 'confusion_matrix.png')
-    plt.savefig(cm_path)
-    print(f"📈 Saved confusion matrix to: {cm_path}")
     plt.show()
 
 if __name__ == '__main__':
