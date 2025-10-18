@@ -59,12 +59,12 @@ def main():
 
     # --- Model Setup ---
     num_classes = len(dataset.classes)
-    model = timm.create_model('efficientnet_b4', pretrained=True, num_classes=num_classes) [cite: 141]
+    model = timm.create_model('efficientnet_b4', pretrained=True, num_classes=num_classes)
 
     # Using Focal Loss instead of CrossEntropyLoss
     criterion = FocalLoss()
     # Optimizer with weight decay to prevent overfitting
-    optimizer = optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-5) [cite: 143]
+    optimizer = optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-5)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.7)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
