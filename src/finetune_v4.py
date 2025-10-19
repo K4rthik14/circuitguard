@@ -1,43 +1,38 @@
 import os
 import random
 from tqdm import tqdm
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torchvision import datasets, transforms, models
+from torchvision import datasets, transforms
+# --- CHANGE: Import 'create_model' from timm ---
+from timm import create_model
 from torch.cuda.amp import autocast, GradScaler
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 # =============================
 # CONFIG
 # =============================
-# =============================
-# CONFIG
-# =============================
-# --- This is the corrected, more robust path setup ---
+# --- Corrected, robust path setup ---
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 DATA_DIR = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
-MODEL_LOAD_PATH = os.path.join(project_root, "models", "fine_tuned_model_acc_95.71.pth") # Make sure your model is here
+# --- IMPORTANT: Update this to your best saved model's filename ---
+MODEL_LOAD_PATH = os.path.join(project_root, "best_model_acc_95.71.pth")
 OUTPUT_DIR = os.path.join(project_root, "models_finetune_v4")
-# --- End of changes ---
 
 EPOCHS = 30
 BATCH_SIZE = 16
-LR = 2e-4
+LR = 2e-5 # A smaller learning rate is better for the final fine-tuning
 SEED = 42
-# =============================
-# SETUP
-# =============================
+
+# (The rest of the script is the same until the create_model function)
+
 def set_seed(seed):
     random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-# =============================
-# DATASET PREP
-# =============================
 def prepare_datasets(data_dir):
     train_tfms = transforms.Compose([
         transforms.Resize((380, 380)),
@@ -47,12 +42,12 @@ def prepare_datasets(data_dir):
         transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
         transforms.RandomApply([transforms.GaussianBlur(3)], p=0.3),
         transforms.ToTensor(),
-        transforms.Normalize([0.5]*3, [0.5]*3)
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
     val_tfms = transforms.Compose([
         transforms.Resize((380, 380)),
         transforms.ToTensor(),
-        transforms.Normalize([0.5]*3, [0.5]*3)
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
     train_dataset = datasets.ImageFolder(os.path.join(data_dir, "train"), transform=train_tfms)
@@ -62,17 +57,17 @@ def prepare_datasets(data_dir):
     return train_dataset, val_dataset, train_dataset.classes
 
 # =============================
-# MODEL SETUP
+# MODEL SETUP (Corrected)
 # =============================
-def create_model(num_classes, model_path):
-    model = models.efficientnet_b4(weights=None)
-    model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
-
+def get_model(num_classes, model_path):
+    # --- CHANGE: Use timm.create_model to match the saved architecture ---
+    model = create_model('efficientnet_b4', pretrained=False, num_classes=num_classes)
+    
     ckpt = torch.load(model_path, map_location="cpu")
     model.load_state_dict(ckpt)
     print("✅ Pretrained weights loaded.")
 
-    # Freeze all layers except classifier
+    # Freeze all layers except the final classifier
     for param in model.parameters():
         param.requires_grad = False
     for param in model.classifier.parameters():
@@ -80,6 +75,7 @@ def create_model(num_classes, model_path):
 
     return model
 
+# (The rest of the script remains the same)
 # =============================
 # TRAIN LOOP
 # =============================
@@ -122,13 +118,12 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"🚀 Using device: {device}")
 
-    # Load datasets
     train_dataset, val_dataset, classes = prepare_datasets(DATA_DIR)
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-    # Model setup
-    model = create_model(num_classes=len(classes), model_path=MODEL_LOAD_PATH).to(device)
+    # --- CHANGE: Renamed the function call ---
+    model = get_model(num_classes=len(classes), model_path=MODEL_LOAD_PATH).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=LR, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=1e-6)
@@ -142,15 +137,15 @@ def main():
 
         print(f"✅ Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}% | LR: {scheduler.get_last_lr()[0]:.2e}")
 
-        # Gradual unfreezing after 5 epochs
         if epoch == 5:
-            print("🔓 Unfreezing last 3 layers of EfficientNet...")
-            for name, param in list(model.features[-3:].named_parameters()):
+            print("🔓 Unfreezing all layers for deeper fine-tuning...")
+            for param in model.parameters():
                 param.requires_grad = True
+            # Re-initialize optimizer to include all parameters
+            optimizer = optim.AdamW(model.parameters(), lr=LR / 10, weight_decay=1e-4)
 
         scheduler.step()
 
-        # Save best model
         if val_acc > best_acc:
             best_acc = val_acc
             save_path = os.path.join(OUTPUT_DIR, f"finetune_v4_best_acc_{best_acc:.2f}.pth")
