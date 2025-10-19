@@ -1,391 +1,177 @@
-# src/finetune_v3.py
 import os
-import math
-import copy
 import argparse
-from collections import Counter
-
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, random_split
-from torch.amp import autocast, GradScaler
-from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms, models
+from torch.cuda.amp import GradScaler, autocast
+from tqdm import tqdm
+import numpy as np
+from copy import deepcopy
 
-from timm import create_model
-from timm.utils import ModelEmaV2
-from timm.data import Mixup  # optional, use if available
-
-# ---------------------------
-# Utility functions
-# ---------------------------
-def unfreeze_last_n_blocks(model, n):
-    """
-    For timm EfficientNet (features is a Sequential of blocks), unfreeze last n children of model.features.
-    """
-    # Freeze all first
-    for param in model.parameters():
-        param.requires_grad = False
-
-    # Attempt typical timm EfficientNet structure
-    if hasattr(model, "features"):
-        children = list(model.features.children())
-        if n <= 0:
-            return
-        to_unfreeze = children[-n:]
-        for block in to_unfreeze:
-            for p in block.parameters():
-                p.requires_grad = True
-
-    # Ensure classifier head is trainable
-    if hasattr(model, "classifier"):
-        for p in model.classifier.parameters():
-            p.requires_grad = True
-    elif hasattr(model, "fc"):
-        for p in model.fc.parameters():
-            p.requires_grad = True
-
-
-def get_num_trainable_params(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-
-def tta_predict(model_fn, images, tta_transforms, device):
-    """
-    images: PIL / tensor batch (already normalized tensor batch)
-    tta_transforms: list of functions that take a batch tensor and return an augmented batch tensor
-    model_fn: function that given images returns logits (on device)
-    Returns averaged softmax probs.
-    """
-    model_fn = model_fn
-    probs = None
-    with torch.no_grad():
-        for tfunc in tta_transforms:
-            aug_images = tfunc(images)
-            logits = model_fn(aug_images)
-            p = torch.softmax(logits, dim=1)
-            probs = p if probs is None else probs + p
-    probs = probs / len(tta_transforms)
-    return probs
-
-
-# ---------------------------
-# Main fine-tune script
-# ---------------------------
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--project-root", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-    parser.add_argument("--data-dir", default=None)  # if None, derived from project_root/outputs/labeled_rois_jpeg
-    parser.add_argument("--model-load-path", default=None, help="Path to base checkpoint to fine-tune")
-    parser.add_argument("--save-dir", default=None)
+# ------------------------- CONFIG -------------------------
+def get_args():
+    parser = argparse.ArgumentParser(description="Fine-tune EfficientNetB4 v3 Stable")
+    parser.add_argument("--data-dir", type=str, default="../outputs/labeled_rois_jpeg", help="Dataset directory")
+    parser.add_argument("--model-load-path", type=str, required=True, help="Path to pretrained model (.pth)")
     parser.add_argument("--epochs", type=int, default=30)
-    parser.add_argument("--batch-size", type=int, default=12)  # smaller if using bigger input size
-    parser.add_argument("--img-size", type=int, default=380)  # B4 native is 380
-    parser.add_argument("--lr", type=float, default=5e-5)  # low LR for fine-tune
-    parser.add_argument("--unfreeze-blocks", type=int, default=3, help="Number of last blocks to unfreeze in features")
-    parser.add_argument("--mixup", action="store_true", help="Enable MixUp/CutMix (timm Mixup)")
-    parser.add_argument("--tta", action="store_true", help="Enable TTA during validation")
-    parser.add_argument("--device", default=None)
-    args = parser.parse_args()
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--save-dir", type=str, default="../models_finetune_v3_fixed")
+    return parser.parse_args()
 
-    project_root = os.path.abspath(args.project_root)
-    data_dir = args.data_dir or os.path.join(project_root, "outputs", "labeled_rois_jpeg")
-    save_dir = args.save_dir or os.path.join(project_root, "models_finetune_v3")
-    os.makedirs(save_dir, exist_ok=True)
-
-    device = torch.device(args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu"))
-    print("📦 Loading dataset for fine-tuning...")
-    print(f"Project root: {project_root}")
-    print(f"Data dir: {data_dir}")
-
-    # ---------------------------
-    # Transforms
-    # ---------------------------
-    train_transforms = transforms.Compose([
-        transforms.RandomResizedCrop((args.img_size, args.img_size), scale=(0.8, 1.0)),
+# ------------------------- AUGMENTATIONS -------------------------
+def get_transforms():
+    train_tfms = transforms.Compose([
+        transforms.RandomResizedCrop(380),
         transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(p=0.2),
         transforms.RandomRotation(10),
-        transforms.ColorJitter(brightness=0.25, contrast=0.25, saturation=0.15, hue=0.05),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.RandomAffine(degrees=10, translate=(0.05, 0.05)),
         transforms.ToTensor(),
-        transforms.RandomErasing(p=0.2, scale=(0.02, 0.25)),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225]),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
-
-    val_base_transforms = transforms.Compose([
-        transforms.Resize((args.img_size, args.img_size)),
+    val_tfms = transforms.Compose([
+        transforms.Resize((380, 380)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225]),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
+    return train_tfms, val_tfms
 
-    # TTA transforms - define as lambdas that take a tensor batch and return augmented tensor batch
-    def tta_identity(x): return x
-    def tta_hflip(x): return torch.flip(x, dims=[3])
-    def tta_vflip(x): return torch.flip(x, dims=[2])
-    def tta_hvflip(x): return torch.flip(x, dims=[2, 3])
+# ------------------------- EMA HELPER -------------------------
+class ModelEMA:
+    def __init__(self, model, decay=0.9998):
+        self.ema_model = deepcopy(model)
+        for p in self.ema_model.parameters():
+            p.requires_grad = False
+        self.decay = decay
 
-    tta_fns = [tta_identity, tta_hflip, tta_vflip, tta_hvflip] if args.tta else [tta_identity]
+    def update(self, model):
+        with torch.no_grad():
+            msd = model.state_dict()
+            for k, v in self.ema_model.state_dict().items():
+                if k in msd:
+                    v.copy_(v * self.decay + msd[k] * (1 - self.decay))
 
-    # ---------------------------
-    # Dataset & DataLoaders
-    # ---------------------------
-    dataset = datasets.ImageFolder(data_dir, transform=train_transforms)
-    classes = dataset.classes
-    num_classes = len(classes)
-    print("Dataset loaded. Classes:", classes)
+# ------------------------- MIXUP -------------------------
+def mixup_data(x, y, alpha=0.2):
+    if alpha <= 0:
+        return x, y, y, 1
+    lam = np.random.beta(alpha, alpha)
+    batch_size = x.size(0)
+    index = torch.randperm(batch_size).to(x.device)
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
 
-    # stable split
-    val_ratio = 0.2
-    total_len = len(dataset)
-    val_len = int(total_len * val_ratio)
-    train_len = total_len - val_len
-    train_dataset, val_dataset = random_split(dataset, [train_len, val_len], generator=torch.Generator().manual_seed(42))
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
-    # override val_dataset transform with deterministic val transforms
-    val_dataset.dataset = copy.copy(dataset)  # shallow copy to avoid altering original
-    val_dataset.dataset.transform = val_base_transforms
+# ------------------------- TRAIN FUNCTION -------------------------
+def train_one_epoch(model, loader, criterion, optimizer, scaler, ema, device, epoch, total_epochs, use_mixup=True):
+    model.train()
+    total_loss = 0
+    progress = tqdm(loader, desc=f"Epoch [{epoch}/{total_epochs}]")
+    for imgs, labels in progress:
+        imgs, labels = imgs.to(device), labels.to(device)
+        optimizer.zero_grad()
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+        if use_mixup:
+            imgs, y_a, y_b, lam = mixup_data(imgs, labels, alpha=0.2)
 
-    print(f"Train: {len(train_dataset)} | Val: {len(val_dataset)}")
-
-    # ---------------------------
-    # Class weights (balanced)
-    # ---------------------------
-    targets = [y for _, y in dataset.imgs]
-    counts = Counter(targets)
-    class_counts = np.array([counts[i] for i in range(num_classes)])
-    class_weights = len(targets) / (num_classes * class_counts + 1e-12)
-    class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
-    print("Class counts:", class_counts)
-    print("Class weights:", class_weights.cpu().numpy())
-
-    # ---------------------------
-    # Model
-    # ---------------------------
-    model = create_model('efficientnet_b4', pretrained=False, num_classes=num_classes)  # instantiate first
-    # load checkpoint if provided
-    if args.model_load_path and os.path.exists(args.model_load_path):
-        print(f"Loading weights from {args.model_load_path} ...")
-        ckpt = torch.load(args.model_load_path, map_location="cpu")
-        # try to handle both state_dict or full checkpoint
-        if isinstance(ckpt, dict) and "state_dict" in ckpt:
-            state_dict = ckpt["state_dict"]
-        else:
-            state_dict = ckpt
-        # some check for prefix
-        try:
-            model.load_state_dict(state_dict)
-        except RuntimeError:
-            # try strip prefixes like 'module.' or 'model.'
-            new_sd = {}
-            for k, v in state_dict.items():
-                new_k = k
-                if k.startswith("module."):
-                    new_k = k[len("module."):]
-                if k.startswith("model."):
-                    new_k = k[len("model."):]
-                new_sd[new_k] = v
-            model.load_state_dict(new_sd)
-        print("✅ Weights loaded.")
-    else:
-        # fallback to pretrained weights from timm (internet required)
-        model = create_model('efficientnet_b4', pretrained=True, num_classes=num_classes)
-        print("⚠️ No load path provided; using timm pretrained then reinitialized classifier.")
-
-    model.to(device)
-
-    # Gradual unfreeze: unfreeze last N blocks + classifier
-    unfreeze_last_n_blocks(model, args.unfreeze_blocks)
-    print("Trainable params after unfreeze:", get_num_trainable_params(model))
-
-    # ---------------------------
-    # Loss, optimizer, scheduler, EMA, amp
-    # ---------------------------
-    criterion = nn.CrossEntropyLoss(weight=class_weights)
-    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=1e-4)
-
-    # Cosine annealing with warmup helper
-    total_epochs = args.epochs
-    warmup_epochs = max(2, int(0.05 * total_epochs))  # e.g., 2 or 5% of total
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, total_epochs - warmup_epochs))
-
-    ema = ModelEmaV2(model, decay=0.9999, device=device)
-    try:
-        scaler = GradScaler(device_type="cuda" if device.type == "cuda" else "cpu")
-    except TypeError:
-        scaler = GradScaler()
-
-
-    # optional mixup
-    mixup_fn = None
-    if args.mixup:
-        mixup_fn = Mixup(mixup_alpha=0.2, cutmix_alpha=1.0, prob=1.0, switch_prob=0.5, mode='batch', label_smoothing=0.1, num_classes=num_classes)
-        print("MixUp enabled")
-
-    # ---------------------------
-    # Training loop
-    # ---------------------------
-    best_acc = 0.0
-    best_path = None
-    train_losses = []
-    val_accs = []
-    epochs_no_improve = 0
-    early_stop_patience = 8
-
-    for epoch in range(1, total_epochs + 1):
-        model.train()
-        running_loss = 0.0
-        total_samples = 0
-
-        # linear warmup of lr
-        if epoch <= warmup_epochs:
-            warmup_lr = args.lr * epoch / float(max(1, warmup_epochs))
-            for g in optimizer.param_groups:
-                g["lr"] = warmup_lr
-
-        for batch_idx, (images, labels) in enumerate(train_loader):
-            images = images.to(device, non_blocking=True)
-            labels = labels.to(device, non_blocking=True)
-
-            optimizer.zero_grad()
-
-            if mixup_fn is not None:
-                images, labels = mixup_fn(images, labels)
-
-            with autocast(device_type="cuda" if device.type == "cuda" else "cpu"):
-                outputs = model(images)
+        with autocast():
+            outputs = model(imgs)
+            if use_mixup:
+                loss = mixup_criterion(criterion, outputs, y_a, y_b, lam)
+            else:
                 loss = criterion(outputs, labels)
 
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-            ema.update(model)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+        ema.update(model)
+        total_loss += loss.item()
+        progress.set_postfix(loss=f"{loss.item():.4f}")
 
-            running_loss += loss.item() * images.size(0)
-            total_samples += images.size(0)
+    return total_loss / len(loader)
 
-        epoch_loss = running_loss / (total_samples + 1e-12)
-        train_losses.append(epoch_loss)
-
-        # step lr scheduler (cosine) after warmup phase using one-step call
-        if epoch > warmup_epochs:
-            scheduler.step()
-
-        # ---------------------------
-        # Validation with TTA (averaging predictions)
-        # ---------------------------
-        ema.module.eval()
-        correct = 0
-        total = 0
-        all_preds = []
-        all_labels = []
-
-        with torch.no_grad():
-            for images, labels in val_loader:
-                images = images.to(device, non_blocking=True)
-                labels = labels.to(device, non_blocking=True)
-
-                # Prepare TTA batch: tta_fns operate on batch tensors
-                probs = None
-                for tfunc in tta_fns:
-                    aug = tfunc(images)
-                    logits = ema.module(aug)
-                    p = torch.softmax(logits, dim=1)
-                    probs = p if probs is None else probs + p
-                probs = probs / len(tta_fns)
-
-                preds = torch.argmax(probs, dim=1)
-                correct += (preds == labels).sum().item()
-                total += labels.size(0)
-
-                all_preds.extend(preds.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
-
-        epoch_acc = 100.0 * correct / (total + 1e-12)
-        val_accs.append(epoch_acc)
-
-        # Logging
-        print(f"✅ Fine-Tune Epoch [{epoch}/{total_epochs}] - Loss: {epoch_loss:.4f} | Val Accuracy: {epoch_acc:.2f}% | LR: {optimizer.param_groups[0]['lr']:.2e}")
-
-        # Save best EMA weights
-        if epoch_acc > best_acc:
-            best_acc = epoch_acc
-            epochs_no_improve = 0
-            best_path = os.path.join(save_dir, f"finetune_v3_best_acc_{best_acc:.2f}.pth")
-            torch.save(ema.module.state_dict(), best_path)
-            print(f"⭐ New best model saved to: {best_path}")
-        else:
-            epochs_no_improve += 1
-
-        # Early stop condition
-        if epochs_no_improve >= early_stop_patience:
-            print(f"⏹️ Early stopping: no improvement for {early_stop_patience} epochs.")
-            break
-
-    print("\n--- Fine-tuning finished ---")
-    print(f"Highest validation accuracy achieved: {best_acc:.2f}%")
-    if best_path:
-        print("Loading best model for final evaluation:", best_path)
-        model.load_state_dict(torch.load(best_path, map_location=device))
-
-    # ---------------------------
-    # Final evaluation: confusion matrix + classification report
-    # ---------------------------
+# ------------------------- VALIDATION -------------------------
+def validate(model, loader, criterion, device):
     model.eval()
-    all_preds = []
-    all_labels = []
+    correct, total, val_loss = 0, 0, 0.0
     with torch.no_grad():
-        for images, labels in val_loader:
-            images = images.to(device, non_blocking=True)
-            labels = labels.to(device, non_blocking=True)
+        for imgs, labels in loader:
+            imgs, labels = imgs.to(device), labels.to(device)
+            outputs = model(imgs)
+            loss = criterion(outputs, labels)
+            val_loss += loss.item()
+            preds = outputs.argmax(dim=1)
+            correct += (preds == labels).sum().item()
+            total += labels.size(0)
+    return val_loss / len(loader), 100.0 * correct / total
 
-            probs = None
-            for tfunc in tta_fns:
-                aug = tfunc(images)
-                logits = model(aug)
-                p = torch.softmax(logits, dim=1)
-                probs = p if probs is None else probs + p
-            probs = probs / len(tta_fns)
-            preds = torch.argmax(probs, dim=1)
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+# ------------------------- MAIN -------------------------
+def main():
+    args = get_args()
+    os.makedirs(args.save_dir, exist_ok=True)
+    device = torch.device(args.device)
 
-    print("\nClassification Report:")
-    print(classification_report(all_labels, all_preds, target_names=classes))
+    print("📦 Loading dataset...")
+    train_tfms, val_tfms = get_transforms()
+    train_data = datasets.ImageFolder(os.path.join(args.data_dir, "train"), transform=train_tfms)
+    val_data = datasets.ImageFolder(os.path.join(args.data_dir, "val"), transform=val_tfms)
 
-    cm = confusion_matrix(all_labels, all_preds)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=classes)
-    fig, ax = plt.subplots(figsize=(8, 8))
-    disp.plot(ax=ax, cmap="Blues", xticks_rotation=45)
-    plt.title("Confusion Matrix")
-    plt.tight_layout()
-    cm_path = os.path.join(save_dir, "finetune_v3_confusion_matrix.png")
-    plt.savefig(cm_path)
-    print("Saved confusion matrix to:", cm_path)
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    num_classes = len(train_data.classes)
+    print(f"Classes: {train_data.classes}")
 
-    # Plot training curves
-    plt.figure(figsize=(10, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(train_losses, label="Train Loss", marker="o")
-    plt.xlabel("Epoch"); plt.ylabel("Loss"); plt.title("Train Loss")
-    plt.legend()
+    # Model
+    model = models.efficientnet_b4(weights="IMAGENET1K_V1")
+    model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
 
-    plt.subplot(1, 2, 2)
-    plt.plot(val_accs, label="Val Acc", marker="o")
-    plt.xlabel("Epoch"); plt.ylabel("Accuracy"); plt.title("Val Accuracy")
-    plt.legend()
-    plt.tight_layout()
-    curves_path = os.path.join(save_dir, "finetune_v3_curves.png")
-    plt.savefig(curves_path)
-    print("Saved training curves to:", curves_path)
+    print(f"Loading weights from {args.model_load_path} ...")
+    ckpt = torch.load(args.model_load_path, map_location="cpu")
+    model.load_state_dict(ckpt)
+    print("✅ Weights loaded.")
+
+    model = model.to(device)
+    ema = ModelEMA(model)
+
+    # Freeze all but classifier for first 10 epochs
+    for name, param in model.named_parameters():
+        if "classifier" not in name:
+            param.requires_grad = False
+
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=1e-4)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
+    scaler = GradScaler()
+
+    best_acc = 0.0
+    for epoch in range(1, args.epochs + 1):
+        # Gradually unfreeze after epoch 10
+        if epoch == 10:
+            print("🔓 Unfreezing all layers for deeper fine-tuning...")
+            for param in model.parameters():
+                param.requires_grad = True
+            optimizer = optim.AdamW(model.parameters(), lr=args.lr / 2, weight_decay=1e-4)
+
+        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, scaler, ema, device, epoch, args.epochs)
+        val_loss, val_acc = validate(ema.ema_model, val_loader, criterion, device)
+        scheduler.step()
+
+        print(f"✅ Fine-Tune Epoch [{epoch}/{args.epochs}] - Loss: {train_loss:.4f} | Val Acc: {val_acc:.2f}% | LR: {scheduler.get_last_lr()[0]:.6f}")
+
+        if val_acc > best_acc:
+            best_acc = val_acc
+            best_path = os.path.join(args.save_dir, f"finetune_v3_fixed_best_{best_acc:.2f}.pth")
+            torch.save(ema.ema_model.state_dict(), best_path)
+            print(f"⭐ New best model saved to: {best_path}")
+
+    print(f"\n--- Fine-Tuning Completed ---\nBest Accuracy Achieved: {best_acc:.2f}%")
 
 if __name__ == "__main__":
     main()
