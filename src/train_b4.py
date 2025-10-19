@@ -72,8 +72,12 @@ def train_and_validate(project_root: str) -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     data_dir = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
-    save_dir = os.path.join(project_root, "models")
+    
+    # --- MODIFICATION: Create a new timestamped folder for this run ---
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    save_dir = os.path.join(project_root, "models", f"run_{timestamp}")
     os.makedirs(save_dir, exist_ok=True)
+    print(f"Models for this run will be saved in: {save_dir}")
 
     train_loader, val_loader, test_loader, classes = get_data_loaders(data_dir, batch_size=32)
     num_classes = len(classes)
@@ -84,10 +88,11 @@ def train_and_validate(project_root: str) -> None:
     optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=30)
 
+    # --- MODIFICATION: Changed num_epochs to 50 ---
     num_epochs = 50
     early_stop_patience = 8
     best_val_acc = 0.0
-    best_path = os.path.join(save_dir, "efficientnet_b4_128_best.pth")
+    best_path = "" # Path will now be updated dynamically
     no_improve_epochs = 0
 
     train_losses, val_losses, val_accuracies = [], [], []
@@ -136,7 +141,11 @@ def train_and_validate(project_root: str) -> None:
 
         if epoch_val_acc > best_val_acc:
             best_val_acc = epoch_val_acc
+            
+            # --- MODIFICATION: Save a new file for each improvement ---
+            best_path = os.path.join(save_dir, f"epoch_{epoch:02d}_acc_{best_val_acc:.2f}.pth")
             torch.save(model.state_dict(), best_path)
+            print(f"⭐ New best model saved to: {best_path}")
             no_improve_epochs = 0
         else:
             no_improve_epochs += 1
@@ -145,9 +154,15 @@ def train_and_validate(project_root: str) -> None:
             print(f"Early stopping triggered at epoch {epoch}")
             break
 
-    print(f"Best Validation Accuracy: {best_val_acc:.2f}% | Model saved to {best_path}")
+    print(f"\nBest Validation Accuracy: {best_val_acc:.2f}%")
+    if best_path:
+        print(f"Best model was saved to {best_path}")
 
     # Reload best for evaluation/plots
+    if not os.path.exists(best_path):
+        print("\nNo best model was saved. Skipping plots and confusion matrix.")
+        return
+        
     model.load_state_dict(torch.load(best_path, map_location=device))
     model.eval()
 
@@ -168,7 +183,7 @@ def train_and_validate(project_root: str) -> None:
     plt.title("Validation Accuracy")
     plt.legend()
 
-    plots_path = os.path.join(project_root, "final_training_performance_b4_128.png")
+    plots_path = os.path.join(save_dir, "final_training_performance.png")
     plt.tight_layout()
     plt.savefig(plots_path)
     print(f"Saved training curves to {plots_path}")
@@ -196,7 +211,7 @@ def train_and_validate(project_root: str) -> None:
     fig, ax = plt.subplots(figsize=(8, 8))
     disp.plot(ax=ax, cmap=plt.cm.Blues, xticks_rotation=45)
     plt.title(f"Confusion Matrix ({eval_split_name})")
-    cm_path = os.path.join(project_root, f"confusion_matrix_b4_128_{eval_split_name}.png")
+    cm_path = os.path.join(save_dir, f"confusion_matrix_{eval_split_name}.png")
     plt.savefig(cm_path)
     print(f"Saved confusion matrix to {cm_path}")
 
@@ -211,4 +226,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
