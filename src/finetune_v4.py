@@ -85,7 +85,7 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device):
     for images, labels in tqdm(loader, desc="Training", leave=False):
         images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
-        with autocast(device_type=device.type):
+        with autocast():
             outputs = model(images)
             loss = criterion(outputs, labels)
         scaler.scale(loss).backward()
