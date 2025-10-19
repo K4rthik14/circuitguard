@@ -1,88 +1,241 @@
 import os
+
 import cv2
 
-# --- File and Folder Paths ---
-# This setup assumes the script is in the 'src' folder
-project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-data_dir = os.path.join(project_root, 'data', 'raw')
-map_file = os.path.join(project_root, 'data', 'test.txt')
-output_dir = os.path.join(project_root, 'outputs', 'labeled_rois_jpeg')
+import traceback
 
-# --- Defect Type Mapping ---
-DEFECT_MAP = {
-    1: 'open',
-    2: 'short',
-    3: 'mousebite',
-    4: 'spur',
-    5: 'copper',
-    6: 'pin-hole'
+
+
+# --- CONFIGURATION ---
+
+project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+
+RAW_DATA_DIR = os.path.join(project_root, "data", "raw")
+
+MAP_FILE = os.path.join(project_root, "data", "test.txt")
+
+OUTPUT_DIR = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
+
+
+
+LABEL_MAP = {
+
+    1: "copper",
+
+    2: "mousebite",
+
+    3: "open",
+
+    4: "pin-hole",
+
+    5: "short",
+
+    6: "spur",
+
 }
 
-if __name__ == "__main__":
-    print("--- Starting Labeled ROI Generation ---")
 
-    if not os.path.exists(map_file):
-        print(f"Error: Map file '{map_file}' not found.")
-        exit()
 
-    # Create output folders for each defect type
-    for defect_name in DEFECT_MAP.values():
-        os.makedirs(os.path.join(output_dir, defect_name), exist_ok=True)
+# Create output dirs
 
-    with open(map_file, "r") as f:
-        lines = f.readlines()
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    print(f"Found {len(lines)} entries in map file. Processing all valid pairs...")
+for label in LABEL_MAP.values():
 
-    total_rois_saved = 0
-    # Loop through each line in the map file, which is our single source of truth
+    os.makedirs(os.path.join(OUTPUT_DIR, label), exist_ok=True)
+
+
+
+# --- HELPER FUNCTION ---
+
+def process_annotation_file(txt_path, image):
+
+    rois = []
+
+    try:
+
+        with open(txt_path, "r") as f:
+
+            lines = f.readlines()
+
+    except Exception as e:
+
+        print(f"⚠️ Cannot read file: {txt_path} ({e})")
+
+        return rois
+
+
+
     for line in lines:
+
         parts = line.strip().split()
-        if len(parts) != 2:
+
+        if len(parts) not in [5, 6]:
+
+            print(f"⚠️ Invalid annotation format in {txt_path}: {line.strip()}")
+
             continue
 
-        # Get the relative paths from the map file
-        image_rel_path, annotation_rel_path = parts
-        
-        # Create the base name (e.g., "group00041/00041/00041000")
-        base_name_path = image_rel_path.replace(".jpg", "")
+        try:
 
-        # Construct the full, absolute paths for the test image and annotation file
-        test_path = os.path.join(data_dir, base_name_path + "_test.jpg")
-        txt_path = os.path.join(data_dir, annotation_rel_path)
+            if len(parts) == 5:
 
-        # Validate that both required files actually exist before processing
-        if not (os.path.exists(test_path) and os.path.exists(txt_path)):
-            continue # If a file is missing, skip to the next entry in the map
+                x1, y1, x2, y2, label_id = map(float, parts)
 
-        # Load the test image
-        test_img = cv2.imread(test_path)
-        if test_img is None:
+            else:
+
+                _, x1, y1, x2, y2, label_id = map(float, parts)
+
+
+
+            label_id = int(label_id)
+
+            if label_id not in LABEL_MAP:
+
+                continue
+
+
+
+            x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+
+            if x2 <= x1 or y2 <= y1:
+
+                continue
+
+            rois.append((x1, y1, x2, y2, LABEL_MAP[label_id]))
+
+        except Exception:
+
             continue
 
-        # Read the annotation file to get defect locations and types
-        with open(txt_path, "r") as f_ann:
-            for ann_line in f_ann:
-                # The annotation files use commas as separators
-                ann_parts = ann_line.strip().split(',')
-                if len(ann_parts) == 5:
-                    try:
-                        x1, y1, x2, y2, defect_id = map(int, ann_parts)
-                        defect_name = DEFECT_MAP.get(defect_id)
-                        if defect_name:
-                            # Crop the defect from the image
-                            roi = test_img[y1:y2, x1:x2]
-                            if roi.size > 0: # Ensure the cropped image is not empty
-                                img_name = os.path.basename(base_name_path)
-                                # Save as .jpg
-                                roi_filename = f"{img_name}_roi_{total_rois_saved}.jpg"
-                                save_path = os.path.join(output_dir, defect_name, roi_filename)
-                                cv2.imwrite(save_path, roi)
-                                total_rois_saved += 1
-                    except ValueError:
-                        # This will catch any lines that don't have 5 numbers
-                        continue
+    return rois
 
-    print(f"\n--- Processing Complete ---")
-    print(f"Successfully generated and saved {total_rois_saved} labeled ROIs.")
-    print(f"Your dataset for Module 3 is ready in: '{output_dir}'")
+
+
+# --- MAIN LOOP ---
+
+if not os.path.exists(MAP_FILE):
+
+    print(f"❌ Error: test.txt not found at {MAP_FILE}")
+
+    exit()
+
+
+
+with open(MAP_FILE, "r") as f:
+
+    lines = f.readlines()
+
+
+
+total_processed = 0
+
+total_saved = 0
+
+total_skipped = 0
+
+
+
+for line in lines:
+
+    parts = line.strip().split()
+
+    if len(parts) != 2:
+
+        continue
+
+
+
+    img_rel, txt_rel = parts
+
+    img_path = os.path.join(RAW_DATA_DIR, img_rel)
+
+    txt_path = os.path.join(RAW_DATA_DIR, txt_rel)
+
+
+
+    if not os.path.exists(img_path):
+
+
+
+    # Try _temp or _test variants
+
+        img_base, img_ext = os.path.splitext(img_path)
+
+        for suffix in ["_temp", "_test"]:
+
+            alt_path = f"{img_base}{suffix}{img_ext}"
+
+            if os.path.exists(alt_path):
+
+                img_path = alt_path
+
+            break
+
+    else:
+
+        print(f"⚠️ Missing image: {img_path}")
+
+        total_skipped += 1
+
+        continue
+
+
+
+    if not os.path.exists(txt_path):
+
+        print(f"⚠️ Missing annotation: {txt_path}")
+
+        total_skipped += 1
+
+        continue
+
+
+
+    image = cv2.imread(img_path)
+
+    if image is None:
+
+        total_skipped += 1
+
+        continue
+
+
+
+    rois = process_annotation_file(txt_path, image)
+
+    if not rois:
+
+        total_skipped += 1
+
+        continue
+
+
+
+    for i, (x1, y1, x2, y2, label) in enumerate(rois):
+
+        roi = image[y1:y2, x1:x2]
+
+        if roi.size == 0:
+
+            continue
+
+        save_path = os.path.join(OUTPUT_DIR, label, f"{os.path.basename(img_path).replace('.jpg', f'_{i}.jpg')}")
+
+        cv2.imwrite(save_path, roi)
+
+        total_saved += 1
+
+
+
+    total_processed += 1
+
+
+
+print("\n--- Processing Complete ---")
+
+print(f"✅ Total ROIs saved: {total_saved}")
+
+print(f"⚠️ Total skipped: {total_skipped}")
+
+print(f"📂 Output directory: {OUTPUT_DIR}")
