@@ -18,7 +18,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 DATA_DIR = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
 # --- IMPORTANT: Update this to your best saved model's filename ---
-MODEL_LOAD_PATH = os.path.join(project_root, "best_model_acc_95.71.pth")
+MODEL_LOAD_PATH = os.path.join(project_root, "fine_tuned_model_acc_95.71.pth")
 OUTPUT_DIR = os.path.join(project_root, "models_finetune_v4")
 
 EPOCHS = 30
