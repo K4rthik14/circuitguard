@@ -19,7 +19,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 # --- This is the corrected, more robust path setup ---
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 DATA_DIR = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
-MODEL_LOAD_PATH = os.path.join(project_root, "models", "pretrained_efficientnet_b4.pth") # Make sure your model is here
+MODEL_LOAD_PATH = os.path.join(project_root, "models", "fine_tuned_model_acc_95.71.pth") # Make sure your model is here
 OUTPUT_DIR = os.path.join(project_root, "models_finetune_v4")
 # --- End of changes ---
 
