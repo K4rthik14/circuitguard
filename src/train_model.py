@@ -73,7 +73,7 @@ def train_and_validate(project_root: str) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     data_dir = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
     
-    # --- MODIFICATION: Create a new timestamped folder for this run ---
+    #Create a new timestamped folder
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     save_dir = os.path.join(project_root, "models", f"run_{timestamp}")
     os.makedirs(save_dir, exist_ok=True)
@@ -88,11 +88,11 @@ def train_and_validate(project_root: str) -> None:
     optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=30)
 
-    # --- MODIFICATION: Changed num_epochs to 50 ---
+    #num_epochs to 50 ---
     num_epochs = 50
     early_stop_patience = 8
     best_val_acc = 0.0
-    best_path = "" # Path will now be updated dynamically
+    best_path = "" # Pathupdated dynamically
     no_improve_epochs = 0
 
     train_losses, val_losses, val_accuracies = [], [], []
@@ -142,7 +142,7 @@ def train_and_validate(project_root: str) -> None:
         if epoch_val_acc > best_val_acc:
             best_val_acc = epoch_val_acc
             
-            # --- MODIFICATION: Save a new file for each improvement ---
+            # Save a new file for each best model
             best_path = os.path.join(save_dir, f"epoch_{epoch:02d}_acc_{best_val_acc:.2f}.pth")
             torch.save(model.state_dict(), best_path)
             print(f"⭐ New best model saved to: {best_path}")
