@@ -81,14 +81,14 @@ def train_and_validate(project_root: str) -> None:
 
     train_loader, val_loader, test_loader, classes = get_data_loaders(data_dir, batch_size=32)
     num_classes = len(classes)
-
+#Building the model here
     model = build_model(num_classes).to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=30)
 
-    #num_epochs to 50 ---
+#num_epochs
     num_epochs = 50
     early_stop_patience = 8
     best_val_acc = 0.0
