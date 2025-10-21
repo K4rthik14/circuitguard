@@ -11,10 +11,8 @@ from timm import create_model
 from torch.cuda.amp import autocast, GradScaler
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-# =============================
-# CONFIG
-# =============================
-# --- Corrected, robust path setup ---
+#Config
+# robust path setup ---
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 DATA_DIR = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
 # --- IMPORTANT: Update this to your best saved model's filename ---
@@ -26,7 +24,7 @@ BATCH_SIZE = 16
 LR = 2e-5 # A smaller learning rate is better for the final fine-tuning
 SEED = 42
 
-# (The rest of the script is the same until the create_model function)
+
 
 def set_seed(seed):
     random.seed(seed)
@@ -150,9 +148,9 @@ def main():
             best_acc = val_acc
             save_path = os.path.join(OUTPUT_DIR, f"finetune_v4_best_acc_{best_acc:.2f}.pth")
             torch.save(model.state_dict(), save_path)
-            print(f"⭐ Saved new best model: {save_path}")
+            print(f" Saved new best model: {save_path}")
 
-    print(f"\n🎯 Fine-tuning complete. Best Validation Accuracy: {best_acc:.2f}%")
+    print(f"\n Fine-tuning complete. Best Validation Accuracy: {best_acc:.2f}%")
 
 if __name__ == "__main__":
     main()

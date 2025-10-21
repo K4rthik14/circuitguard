@@ -2,13 +2,12 @@ import os
 import shutil
 import random
 
-# --- CONFIGURATION ---
-# This script assumes it's in the 'src' folder
+
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 # This is the directory with your labeled class folders (copper, open, etc.)
 base_dir = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
 
-# --- SETUP ---
+# create train and eval directories
 train_dir = os.path.join(base_dir, "train")
 val_dir = os.path.join(base_dir, "val")
 
@@ -28,14 +27,14 @@ for cls in class_folders:
     
     # Get a list of all images in the class folder
     images = [f for f in os.listdir(src_class_dir) if f.lower().endswith((".jpg", ".jpeg"))]
-    random.shuffle(images) # Shuffle the images randomly
+    random.shuffle(images) 
     
-    # Split the images 80% for training, 20% for validation
+    # Split 80% for training, 20% for validation
     split_index = int(0.8 * len(images))
     train_images = images[:split_index]
     val_images = images[split_index:]
 
-    # Create the corresponding class folders inside 'train' and 'val'
+    #corresponding class folders inside 'train' and 'val'
     dest_train_dir = os.path.join(train_dir, cls)
     dest_val_dir = os.path.join(val_dir, cls)
     os.makedirs(dest_train_dir, exist_ok=True)
@@ -50,5 +49,5 @@ for cls in class_folders:
     # After moving, the original class folder will be empty and can be removed
     os.rmdir(src_class_dir)
 
-print("\n✅ Dataset split complete!")
-print(f"Your data is now organized in:\n- {train_dir}\n- {val_dir}")
+print("\n Dataset split complet")
+print(f"Data is now organized in:\n- {train_dir}\n- {val_dir}")
