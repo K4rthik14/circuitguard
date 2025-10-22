@@ -28,7 +28,7 @@ def load_model(num_classes: int, model_path: str, device: torch.device) -> timm.
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.to(device)
     model.eval()
-    print(f"✅ Model loaded from: {model_path}")
+    print(f" Model loaded from: {model_path}")
     return model
 
 def get_test_loader(data_dir: str, batch_size: int = 32) -> tuple:
