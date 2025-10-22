@@ -1,0 +1,14 @@
+--- Final Evaluation Report (on Test Set) ---
+
+              precision    recall  f1-score   support
+
+      copper     0.9967    0.9869    0.9918       306
+   mousebite     0.9967    0.9967    0.9967       299
+        open     0.9669    0.9832    0.9750       297
+    pin-hole     0.9694    0.9694    0.9694       196
+       short     0.9964    1.0000    0.9982       277
+        spur     1.0000    0.9882    0.9941       254
+
+    accuracy                         0.9883      1629
+   macro avg     0.9877    0.9874    0.9875      1629
+weighted avg     0.9884    0.9883    0.9884      1629

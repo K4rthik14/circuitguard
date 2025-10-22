@@ -14,9 +14,9 @@ import cv2
 # --- IMPORTANT: Update these paths to match your project ---
 PROJECT_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 # Path to the folder containing your best model run
-MODEL_RUN_FOLDER = os.path.join(PROJECT_ROOT, "models", "run_20251019_201338") 
+MODEL_RUN_FOLDER = os.path.join(PROJECT_ROOT, "models") 
 # Name of your best model file
-MODEL_NAME = "epoch_38_acc_98.46.pth"
+MODEL_NAME = "final_model.pth"
 # Path to your dataset directory
 DATA_DIR = os.path.join(PROJECT_ROOT, "outputs", "labeled_rois_jpeg")
 # Folder to save the final evaluation results
@@ -42,7 +42,7 @@ def get_test_loader(data_dir: str, batch_size: int = 32) -> tuple:
     
     test_path = os.path.join(data_dir, "test")
     if not os.path.isdir(test_path):
-        print(f"❌ Error: Test directory not found at '{test_path}'")
+        print(f"Error: Test directory not found at '{test_path}'")
         print("Please create the 'test' directory and move some validation images into it.")
         return None, None
 
