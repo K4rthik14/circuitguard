@@ -9,6 +9,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classifica
 import matplotlib.pyplot as plt
 import timm
 import cv2
+import pandas as pd
 
 # --- CONFIGURATION ---
 # --- IMPORTANT: Update these paths to match your project ---
@@ -105,7 +106,22 @@ def save_annotated_images(test_loader: DataLoader, predictions: np.ndarray, clas
         cv2.imwrite(save_path, image)
         
     print(f"📸 Saved {len(indices)} annotated images to: {annotated_dir}")
-
+def plot_per_class_accuracy(report_dict: dict, classes: list, save_path: str):
+    """Generates and saves a bar chart of per-class accuracy (recall)."""
+    accuracies = [report_dict[cls]['recall'] * 100 for cls in classes] # Recall is accuracy per class
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(classes, accuracies, color='skyblue')
+    ax.set_ylabel('Accuracy (%)')
+    ax.set_title('Per-Class Accuracy (Recall) on Test Set')
+    ax.set_ylim(0, 105)
+    plt.xticks(rotation=45, ha='right')
+    # Add accuracy values on top of bars
+    for i, v in enumerate(accuracies):
+        ax.text(i, v + 1, f"{v:.2f}%", ha='center', va='bottom')
+    plt.tight_layout()
+    plt.savefig(save_path)
+    print(f"📊 Per-class accuracy bar chart saved to: {save_path}")
+    plt.close(fig) # Close the figure to free memory
 def main():
     """Main function to run the evaluation pipeline."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -127,19 +143,31 @@ def main():
     print("🤖 Running inference on the test set...")
     true_labels, predictions = evaluate_model(model, test_loader, device)
     
+    # In the main() function, after printing the report:
+
     # --- DELIVERABLES ---
-    
+
     # 4. Final evaluation report with metrics
     print("\n--- Final Evaluation Report ---")
-    report = classification_report(true_labels, predictions, target_names=classes, digits=4)
-    print(report)
-    
+    # --- CHANGE: Get report as dict for plotting ---
+    report_dict = classification_report(true_labels, predictions, target_names=classes, digits=4, output_dict=True)
+    report_text = classification_report(true_labels, predictions, target_names=classes, digits=4) # For text file
+    print(report_text)
+
     # Save the report to a text file
     report_path = os.path.join(SAVE_DIR, "final_evaluation_report.txt")
     with open(report_path, "w") as f:
         f.write("--- Final Evaluation Report (on Test Set) ---\n\n")
-        f.write(report)
+        f.write(report_text)
     print(f"📄 Report saved to: {report_path}")
+
+    # --- NEW: Plot per-class accuracy ---
+    acc_chart_path = os.path.join(SAVE_DIR, "per_class_accuracy_test_set.png")
+    # Exclude accuracy/macro/weighted avg keys before plotting
+    class_metrics = {k: v for k, v in report_dict.items() if k in classes}
+    plot_per_class_accuracy(class_metrics, classes, acc_chart_path)
+
+    
     
     # 5. Final confusion matrix
     cm = confusion_matrix(true_labels, predictions)
