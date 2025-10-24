@@ -49,7 +49,7 @@ def get_test_loader(data_dir: str, batch_size: int = 32) -> tuple:
     test_dataset = datasets.ImageFolder(test_path, transform=test_transforms)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
     
-    print(f"📦 Test dataset loaded. Found {len(test_dataset)} images in {len(test_dataset.classes)} classes.")
+    print(f" Test dataset loaded. Found {len(test_dataset)} images in {len(test_dataset.classes)} classes.")
     return test_loader, test_dataset.classes
 
 def evaluate_model(model: timm.models.EfficientNet, test_loader: DataLoader, device: torch.device) -> tuple:
