@@ -105,7 +105,7 @@ def save_annotated_images(test_loader: DataLoader, predictions: np.ndarray, clas
         save_path = os.path.join(annotated_dir, f"annotated_{i}_{os.path.basename(image_path)}")
         cv2.imwrite(save_path, image)
         
-    print(f"📸 Saved {len(indices)} annotated images to: {annotated_dir}")
+    print(f" Saved {len(indices)} annotated images to: {annotated_dir}")
 def plot_per_class_accuracy(report_dict: dict, classes: list, save_path: str):
     """Generates and saves a bar chart of per-class accuracy (recall)."""
     accuracies = [report_dict[cls]['recall'] * 100 for cls in classes] # Recall is accuracy per class
@@ -120,7 +120,7 @@ def plot_per_class_accuracy(report_dict: dict, classes: list, save_path: str):
         ax.text(i, v + 1, f"{v:.2f}%", ha='center', va='bottom')
     plt.tight_layout()
     plt.savefig(save_path)
-    print(f"📊 Per-class accuracy bar chart saved to: {save_path}")
+    print(f"Per-class accuracy bar chart saved to: {save_path}")
     plt.close(fig) # Close the figure to free memory
 def main():
     """Main function to run the evaluation pipeline."""
@@ -135,7 +135,7 @@ def main():
     # 2. Load the best model
     model_path = os.path.join(MODEL_RUN_FOLDER, MODEL_NAME)
     if not os.path.exists(model_path):
-        print(f"❌ Error: Model file not found at '{model_path}'")
+        print(f" Error: Model file not found at '{model_path}'")
         return
     model = load_model(len(classes), model_path, device)
     
@@ -159,7 +159,7 @@ def main():
     with open(report_path, "w") as f:
         f.write("--- Final Evaluation Report (on Test Set) ---\n\n")
         f.write(report_text)
-    print(f"📄 Report saved to: {report_path}")
+    print(f"Report saved to: {report_path}")
 
     # --- NEW: Plot per-class accuracy ---
     acc_chart_path = os.path.join(SAVE_DIR, "per_class_accuracy_test_set.png")
@@ -177,7 +177,7 @@ def main():
     plt.title("Final Confusion Matrix (on Test Set)")
     cm_path = os.path.join(SAVE_DIR, "final_confusion_matrix_test_set.png")
     plt.savefig(cm_path)
-    print(f"📈 Confusion matrix saved to: {cm_path}")
+    print(f"Confusion matrix saved to: {cm_path}")
     
     # 6. Annotated output test images
     save_annotated_images(test_loader, predictions, classes, SAVE_DIR)
