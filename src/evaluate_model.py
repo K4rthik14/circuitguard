@@ -11,8 +11,7 @@ import timm
 import cv2
 import pandas as pd
 
-# --- CONFIGURATION ---
-# --- IMPORTANT: Update these paths to match your project ---
+#Configuration
 PROJECT_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 # Path to the folder containing your best model run
 MODEL_RUN_FOLDER = os.path.join(PROJECT_ROOT, "models") 
@@ -139,13 +138,11 @@ def main():
         return
     model = load_model(len(classes), model_path, device)
     
-    # 3. Run inference to get predictions
-    print("🤖 Running inference on the test set...")
+    #Run inference to get predictions
+    print(" Running inference on the test set...")
     true_labels, predictions = evaluate_model(model, test_loader, device)
     
     # In the main() function, after printing the report:
-
-    # --- DELIVERABLES ---
 
     # 4. Final evaluation report with metrics
     print("\n--- Final Evaluation Report ---")
@@ -161,7 +158,7 @@ def main():
         f.write(report_text)
     print(f"Report saved to: {report_path}")
 
-    # --- NEW: Plot per-class accuracy ---
+    #Plot per-class accuracy ---
     acc_chart_path = os.path.join(SAVE_DIR, "per_class_accuracy_test_set.png")
     # Exclude accuracy/macro/weighted avg keys before plotting
     class_metrics = {k: v for k, v in report_dict.items() if k in classes}
@@ -169,7 +166,7 @@ def main():
 
     
     
-    # 5. Final confusion matrix
+    #Final confusion matrix
     cm = confusion_matrix(true_labels, predictions)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=classes)
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -179,7 +176,7 @@ def main():
     plt.savefig(cm_path)
     print(f"Confusion matrix saved to: {cm_path}")
     
-    # 6. Annotated output test images
+    # Annotated output test images
     save_annotated_images(test_loader, predictions, classes, SAVE_DIR)
     
     print("\n--- Module 4 Complete ---")
