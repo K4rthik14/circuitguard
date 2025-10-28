@@ -1,0 +1,137 @@
+/* static/style.css */
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f7f6;
+}
+
+.container {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 25px;
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 8px;
+}
+
+h1, h2, h3 {
+    color: #333;
+}
+
+p {
+    color: #555;
+}
+
+#upload-form {
+    margin-bottom: 25px;
+}
+
+.upload-section {
+    display: flex;
+    gap: 20px; /* Space between upload boxes */
+    margin-bottom: 15px;
+}
+
+.upload-box {
+    flex: 1; /* Each box takes equal space */
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #fafafa;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #444;
+}
+
+input[type="file"] {
+    display: block;
+    margin-bottom: 10px;
+    width: 100%; /* Make input take full width */
+}
+
+.image-preview {
+    max-width: 100%;
+    max-height: 150px;
+    margin-top: 10px;
+    border: 1px solid #eee;
+}
+
+button {
+    padding: 12px 20px;
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+
+#results-section {
+    margin-top: 30px;
+    border-top: 2px solid #eee;
+    padding-top: 25px;
+}
+
+#spinner {
+    font-weight: bold;
+    color: #007bff;
+}
+
+.error {
+    color: #dc3545; /* Red for errors */
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+#result-image {
+    display: block; /* Make image block level */
+    margin-top: 15px;
+    margin-bottom: 15px; /* Add space below image */
+    border: 1px solid #ddd;
+}
+
+.download-button {
+    display: inline-block;
+    padding: 10px 15px;
+    background-color: #28a745; /* Green */
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+
+.download-button:hover {
+    background-color: #218838;
+}
+
+.defect-details-grid {
+    margin-top: 15px;
+    /* You can add grid styles later if needed */
+}
+
+#no-defects-message {
+    padding: 15px;
+    background-color: #e6ffed;
+    border: 1px solid #c3e6cb;
+    border-radius: 5px;
+    color: #155724;
+    margin-top: 15px;
+}
