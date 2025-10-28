@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CircuitGuard - Defect Detection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>CircuitGuard: PCB Defect Detection & Classification</h1>
+        <p>Upload a defect-free <strong>Template</strong> image and a <strong>Test</strong> image to automatically identify and classify manufacturing defects.</p>
+
+        <form id="upload-form">
+            <div class="upload-section">
+                <div class="upload-box">
+                    <label for="template_image">Template Image (Defect-Free):</label>
+                    <input type="file" id="template_image" name="template_image" accept="image/png, image/jpeg" required>
+                    <img id="template-preview" class="image-preview" src="#" alt="Template Preview" style="display: none;"/>
+                </div>
+                <div class="upload-box">
+                    <label for="test_image">Test Image (With Defects):</label>
+                    <input type="file" id="test_image" name="test_image" accept="image/png, image/jpeg" required>
+                    <img id="test-preview" class="image-preview" src="#" alt="Test Preview" style="display: none;"/>
+                </div>
+            </div>
+            <button type="submit" id="detect-button">🚀 Run Defect Detection & Classification</button>
+        </form>
+
+        <div id="results-section" style="display: none;">
+            <h2>Results</h2>
+            <div id="spinner" style="display: none; text-align: center; padding: 20px;">
+                ⏳ Processing... Please wait.
+            </div>
+            <div id="error-message" class="error"></div>
+
+            <div id="output-display" style="display: none;">
+                <h3>Annotated Test Image</h3>
+                <img id="result-image" src="" alt="Annotated Result" style="max-width: 100%; border: 1px solid #ccc;">
+                <div id="download-button-container" style="margin-top: 10px;"></div>
+
+                <h3>Detected Defect Details</h3>
+                <div id="defect-details" class="defect-details-grid">
+                    </div>
+                <div id="no-defects-message" style="display: none; color: green; font-weight: bold;">✅ No defects found!</div>
+            </div>
+        </div>
+    </div> <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
