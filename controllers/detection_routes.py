@@ -1,18 +1,19 @@
 # controllers/detection_routes.py
-from flask import Blueprint, request, jsonify, Response, current_app, send_file
+from flask import Blueprint, request, jsonify, Response, current_app
 from PIL import Image
 import io
 import cv2
 import numpy as np
-# Import the service logic function directly
-from services.defect_service import process_and_classify_defects
-import logging # Added for better logging
+# Import the service logic function correctly
+from services.defect_service import process_and_classify_defects # Correct import
+import logging
+import base64 # Import base64 encoding
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Create a Blueprint for detection-related routes
-detection_bp = Blueprint('detection', __name__, url_prefix='/api') # Define URL prefix here
+# Create a Blueprint for detection-related routes, define URL prefix here
+detection_bp = Blueprint('detection', __name__, url_prefix='/api')
 
 @detection_bp.route('/detect', methods=['POST'])
 def detect_defects_api():
@@ -27,7 +28,7 @@ def detect_defects_api():
     template_file = request.files['template_image']
     test_file = request.files['test_image']
 
-    # Check if filenames are empty (user might not have selected a file)
+    # Check if filenames are empty
     if not template_file or template_file.filename == '' or \
        not test_file or test_file.filename == '':
         logging.warning("No file selected for template or test image.")
@@ -41,41 +42,43 @@ def detect_defects_api():
         logging.info("Template and Test images loaded successfully from request.")
 
         # --- Call the Service Layer ---
-        # This performs the core logic: find defects, classify, annotate
         logging.info("Calling defect service to process images...")
+        # Service returns annotated image (BGR) AND defect details list
         annotated_cv_bgr, defect_details = process_and_classify_defects(
             template_img_pil, test_img_pil
-            # Consider adding min_area from request.form if you want it configurable via API
+            # Add min_area passing if needed: min_area=request.form.get('min_area', MIN_CONTOUR_AREA_DEFAULT, type=int)
         )
         logging.info(f"Service processing complete. Found {len(defect_details)} defects.")
 
-        # --- Prepare and Send Response ---
-        # Convert the final annotated OpenCV image (BGR format) to PNG bytes
+        # --- Prepare Response ---
+        # 1. Encode annotated image to PNG bytes
         is_success, img_encoded = cv2.imencode('.png', annotated_cv_bgr)
         if not is_success:
-            # Log the error if encoding fails
             logging.error("Failed to encode annotated image to PNG format.")
             raise RuntimeError("Failed to encode annotated image to PNG")
 
         image_bytes = img_encoded.tobytes()
 
-        # Return the annotated image directly as a file response
-        logging.info("Sending annotated image as PNG response.")
-        return Response(image_bytes, mimetype='image/png')
+        # 2. Encode image bytes to Base64 string for embedding in JSON
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        image_data_url = f"data:image/png;base64,{image_base64}" # Create data URL
+
+        # 3. Return JSON response containing the image data URL and defect details list
+        logging.info("Sending JSON response with image data URL and defect details.")
+        return jsonify({
+            "annotated_image_url": image_data_url,
+            "defects": defect_details # The list returned by the service
+        })
 
     # --- Error Handling ---
-    except FileNotFoundError as e: # Specific error for model file issues
+    except FileNotFoundError as e:
         logging.error(f"Model file not found error during processing: {e}", exc_info=True)
-        # Return a more specific error for configuration issues
         return jsonify({"error": f"Configuration error: Could not find required model file. {str(e)}"}), 500
-    except RuntimeError as e: # Specific error for image encoding issues
-        logging.error(f"Image encoding error during processing: {e}", exc_info=True)
-        return jsonify({"error": "Failed to generate the output image."}), 500
+    except RuntimeError as e: # Catch encoding errors or model load errors
+        logging.error(f"Runtime error during processing: {e}", exc_info=True)
+        return jsonify({"error": f"Failed during processing: {str(e)}"}), 500
     except Exception as e:
-        # Log the full exception traceback for any other unexpected errors
         logging.error(f"Unexpected error processing images: {e}", exc_info=True)
-        # Return a generic server error message to the client
         return jsonify({"error": "An internal server error occurred during image processing."}), 500
 
-# Remember to create __init__.py files in 'services' and 'controllers' folders
-# to make them Python packages.
+# Ensure __init__.py exists in 'services' and 'controllers' folders.
