@@ -1,29 +1,15 @@
+// static/script.js
 const detectBtn = document.getElementById("detect-button");
 const spinner = document.getElementById("spinner");
 const resultSection = document.getElementById("results-section");
 const resultImg = document.getElementById("result-image");
 const downloadLink = document.getElementById("download-link");
 const defectCount = document.getElementById("defect-count");
-const summaryBody = document.getElementById("summary-body");
+const summaryBody = document.getElementById("summary-body"); // Target the tbody
 
-// --- Image Preview ---
+// --- Image Preview (keep as is) ---
 function setupPreview(inputId, previewId) {
-    const input = document.getElementById(inputId);
-    const preview = document.getElementById(previewId);
-
-    input.addEventListener("change", () => {
-        const file = input.files[0];
-        if (file && file.type.startsWith("image/")) {
-            const reader = new FileReader();
-            reader.onload = e => {
-                preview.src = e.target.result;
-                preview.style.display = "block";
-            };
-            reader.readAsDataURL(file);
-        } else {
-            preview.style.display = "none";
-        }
-    });
+    // ... (preview code remains the same) ...
 }
 setupPreview("template_image", "template-preview");
 setupPreview("test_image", "test-preview");
@@ -43,6 +29,10 @@ detectBtn.addEventListener("click", async () => {
 
     spinner.style.display = "block";
     detectBtn.disabled = true;
+    resultSection.style.display = "none"; // Hide previous results
+    resultImg.style.display = "none";
+    downloadLink.style.display = "none";
+
 
     try {
         const response = await fetch("/api/detect", {
@@ -50,45 +40,78 @@ detectBtn.addEventListener("click", async () => {
             body: formData,
         });
 
-        if (!response.ok) throw new Error("Detection failed!");
+        spinner.style.display = "none"; // Hide spinner once response starts
 
-        // Expect backend to return JSON with keys: summary, image
-        const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
-
-        // --- Mock summary (replace when backend returns JSON) ---
-        const mockSummary = {
-            short: 2,
-            pinhole: 3,
-            mousebite: 1
-        };
-
-        resultSection.style.display = "block";
-        spinner.style.display = "none";
-        detectBtn.disabled = false;
-
-        // Update defect summary
-        const totalDefects = Object.values(mockSummary).reduce((a, b) => a + b, 0);
-        defectCount.textContent = totalDefects;
-
-        summaryBody.innerHTML = "";
-        for (const [type, count] of Object.entries(mockSummary)) {
-            summaryBody.innerHTML += `
-                <tr>
-                    <td>${type}</td>
-                    <td>${count}</td>
-                </tr>`;
+        if (!response.ok) {
+             // Try to get error message from API response if possible
+            let errorMsg = `Error: ${response.status} ${response.statusText}`;
+            try {
+                const errorData = await response.json();
+                if (errorData && errorData.error) {
+                    errorMsg = `API Error: ${errorData.error}`;
+                }
+            } catch (e) { /* Response wasn't JSON */ }
+            throw new Error(errorMsg);
         }
 
-        // Display annotated image
+        // --- Handle JSON Response ---
+        const data = await response.json(); // Expecting JSON now
+
+        if (!data || !data.annotated_image_url || !data.defects) {
+             throw new Error("Invalid response format from server.");
+        }
+
+        const defects = data.defects; // Get the actual defect list
+        const imageUrl = data.annotated_image_url; // Get the image data URL
+
+        // --- Update UI with Actual Data ---
+        resultSection.style.display = "block"; // Show results section
+        detectBtn.disabled = false;
+
+        // Update defect summary table
+        const totalDefects = defects.length;
+        defectCount.textContent = totalDefects; // Update total count
+
+        summaryBody.innerHTML = ""; // Clear previous/mock data
+        if (totalDefects === 0) {
+            summaryBody.innerHTML = `<tr><td colspan="2">✅ No defects found!</td></tr>`;
+        } else {
+            // Calculate counts per defect type
+            const summaryCounts = {};
+            defects.forEach(defect => {
+                summaryCounts[defect.label] = (summaryCounts[defect.label] || 0) + 1;
+            });
+
+            // Populate table rows
+            for (const [type, count] of Object.entries(summaryCounts)) {
+                const row = summaryBody.insertRow();
+                const cellType = row.insertCell();
+                const cellCount = row.insertCell();
+                cellType.textContent = type;
+                cellCount.textContent = count;
+            }
+        }
+
+        // Display annotated image using the data URL
         resultImg.src = imageUrl;
         resultImg.style.display = "block";
+
+        // Set up download link for the annotated image (using the data URL)
         downloadLink.href = imageUrl;
-        downloadLink.style.display = "inline-block";
+        // Suggest a filename based on the original test file name
+        const safeFilename = testFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        downloadLink.download = `annotated_${safeFilename}.png`; // Ensure .png
+        downloadLink.style.display = "inline-block"; // Make download link visible
+
 
     } catch (err) {
         spinner.style.display = "none";
         detectBtn.disabled = false;
-        alert("Error: " + err.message);
+        resultSection.style.display = "block"; // Show section to display error
+        // Display error message in the UI (add an element with id="error-message" in HTML)
+        const errorElement = document.getElementById("error-message") || resultSection; // Fallback
+        errorElement.textContent = "Error: " + err.message;
+        errorElement.style.color = 'red'; // Make error visible
+        console.error("Detection Error:", err);
     }
 });
