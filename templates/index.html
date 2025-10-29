@@ -3,49 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CircuitGuard - Defect Detection</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>CircuitGuard - PCB Defect Detection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>CircuitGuard: PCB Defect Detection & Classification</h1>
-        <p>Upload a defect-free <strong>Template</strong> image and a <strong>Test</strong> image to automatically identify and classify manufacturing defects.</p>
+    <header class="header">
+        <h1>🧠 CircuitGuard</h1>
+        <p>AI-powered PCB Defect Detection using EfficientNet-B4</p>
+    </header>
 
-        <form id="upload-form">
-            <div class="upload-section">
+    <main class="container">
+        <!-- Upload Section -->
+        <section class="upload-section card">
+            <h2>Upload Images</h2>
+            <div class="upload-grid">
                 <div class="upload-box">
-                    <label for="template_image">Template Image (Defect-Free):</label>
-                    <input type="file" id="template_image" name="template_image" accept="image/png, image/jpeg" required>
-                    <img id="template-preview" class="image-preview" src="#" alt="Template Preview" style="display: none;"/>
+                    <label>Template Image</label>
+                    <input type="file" id="template_image" accept="image/*" required>
+                    <img id="template-preview" class="preview" src="#" alt="Template Preview" style="display:none;">
                 </div>
                 <div class="upload-box">
-                    <label for="test_image">Test Image (With Defects):</label>
-                    <input type="file" id="test_image" name="test_image" accept="image/png, image/jpeg" required>
-                    <img id="test-preview" class="image-preview" src="#" alt="Test Preview" style="display: none;"/>
+                    <label>Test Image</label>
+                    <input type="file" id="test_image" accept="image/*" required>
+                    <img id="test-preview" class="preview" src="#" alt="Test Preview" style="display:none;">
                 </div>
             </div>
-            <button type="submit" id="detect-button">🚀 Run Defect Detection & Classification</button>
-        </form>
+        </section>
 
-        <div id="results-section" style="display: none;">
-            <h2>Results</h2>
-            <div id="spinner" style="display: none; text-align: center; padding: 20px;">
-                ⏳ Processing... Please wait.
+        <!-- Parameters Section -->
+        <section class="params-section card">
+            <h2>Detection Parameters</h2>
+            <div class="slider-container">
+                <label for="diff-threshold">Difference Threshold: <span id="diff-value">30</span></label>
+                <input type="range" id="diff-threshold" min="0" max="100" value="30">
             </div>
-            <div id="error-message" class="error"></div>
-
-            <div id="output-display" style="display: none;">
-                <h3>Annotated Test Image</h3>
-                <img id="result-image" src="" alt="Annotated Result" style="max-width: 100%; border: 1px solid #ccc;">
-                <div id="download-button-container" style="margin-top: 10px;"></div>
-
-                <h3>Detected Defect Details</h3>
-                <div id="defect-details" class="defect-details-grid">
-                    <p id="defect-details-placeholder" style="display: none; color: #555;"><em>Defect details require API modification to return data alongside the image.</em></p>
-                </div>
-                <div id="no-defects-message" style="display: none; color: green; font-weight: bold;">✅ No defects found!</div>
+            <div class="slider-container">
+                <label for="roi-area">Minimum ROI Area: <span id="roi-value">50</span></label>
+                <input type="range" id="roi-area" min="10" max="200" value="50">
             </div>
+            <div class="slider-container">
+                <label for="conf-threshold">Confidence Threshold: <span id="conf-value">0.6</span></label>
+                <input type="range" id="conf-threshold" min="0" max="1" step="0.01" value="0.6">
+            </div>
+        </section>
+
+        <!-- Detect Button -->
+        <div class="action-container">
+            <button id="detect-button" class="btn-primary">🚀 Detect Defects</button>
+            <div id="spinner" class="spinner" style="display:none;">Processing...</div>
         </div>
-    </div> <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+        <!-- Results Section -->
+        <section id="results-section" class="results-section card" style="display:none;">
+            <h2>Defect Summary</h2>
+            <p id="defect-count">Detected Defects: 0</p>
+
+            <div id="defect-table-container">
+                <table id="defect-table">
+                    <thead>
+                        <tr><th>ID</th><th>Region</th><th>Confidence</th></tr>
+                    </thead>
+                    <tbody id="defect-table-body">
+                        <tr><td colspan="3"><em>Awaiting results...</em></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="result-image-container">
+                <h3>Annotated Image</h3>
+                <img id="result-image" src="#" alt="Annotated Result" style="display:none;">
+                <a id="download-link" class="btn-download" href="#" download style="display:none;">⬇️ Download Annotated Image</a>
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
