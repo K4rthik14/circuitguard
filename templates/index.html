@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CircuitGuard - PCB Defect Detection</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <header class="header">
@@ -13,42 +13,52 @@
     </header>
 
     <main class="container">
+        <!-- Upload Section -->
         <section class="upload-section card">
             <h2>Upload Images</h2>
-            <form id="upload-form">
-                <div class="upload-grid">
-                    <div class="upload-box">
-                        <label for="template_image">Template Image</label>
-                        <p class="description">Upload the reference/defect-free PCB image.</p>
-                        <input type="file" id="template_image" name="template_image" accept="image/png, image/jpeg" required>
-                        <img id="template-preview" class="preview" src="#" alt="Template Preview" style="display:none;">
-                    </div>
-                    <div class="upload-box">
-                        <label for="test_image">Test Image</label>
-                        <p class="description">Upload the test PCB image to analyze.</p>
-                        <input type="file" id="test_image" name="test_image" accept="image/png, image/jpeg" required>
-                        <img id="test-preview" class="preview" src="#" alt="Test Preview" style="display:none;">
-                    </div>
+            <div class="upload-grid">
+                <div class="upload-box">
+                    <label>Template Image</label>
+                    <input type="file" id="template_image" accept="image/*" required>
+                    <img id="template-preview" class="preview" src="#" alt="Template Preview" style="display:none;">
                 </div>
-                 <button type="submit" id="detect-button" class="btn-primary">🚀 Detect Defects</button>
-            </form>
+                <div class="upload-box">
+                    <label>Test Image</label>
+                    <input type="file" id="test_image" accept="image/*" required>
+                    <img id="test-preview" class="preview" src="#" alt="Test Preview" style="display:none;">
+                </div>
+            </div>
         </section>
 
+        <!-- Detect Button -->
+        <div class="action-container">
+            <button id="detect-button" class="btn-primary">🚀 Detect Defects</button>
+            <div id="spinner" class="spinner" style="display:none;">Processing...</div>
+        </div>
+
+        <!-- Results Section -->
         <section id="results-section" class="results-section card" style="display:none;">
-            <h2>Analysis Results</h2>
-             <div id="spinner" class="spinner" style="display:none;">⏳ Processing... Please wait.</div>
-             <div id="error-message" class="error-message"></div>
-             <div id="success-message" class="success-message" style="display: none;"></div>
+            <h2>Defect Summary</h2>
+            <p><strong>Total Defects Detected:</strong> <span id="defect-count">0</span></p>
 
+            <div id="summary-container">
+                <table id="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Defect Type</th>
+                            <th>Count</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summary-body">
+                        <tr><td colspan="2"><em>Awaiting detection results...</em></td></tr>
+                    </tbody>
+                </table>
+            </div>
 
-            <div id="output-display" style="display: none;">
+            <div class="result-image-container">
                 <h3>Annotated Image</h3>
-                 <div class="result-image-container">
-                    <img id="result-image" src="#" alt="Annotated Result Image">
-                </div>
-                <div id="download-button-container">
-                    </div>
-                 <div id="no-defects-message" style="display: none; color: green; font-weight: bold; margin-top: 15px;">✅ No defects found!</div>
+                <img id="result-image" src="#" alt="Annotated Result" style="display:none;">
+                <a id="download-link" class="btn-download" href="#" download style="display:none;">⬇️ Download Annotated Image</a>
             </div>
         </section>
     </main>

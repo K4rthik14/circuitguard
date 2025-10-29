@@ -1,235 +1,105 @@
-/* static/style.css */
-:root {
-    --primary-color: #0d6efd; /* Bootstrap Blue */
-    --secondary-color: #6c757d; /* Gray */
-    --background-color: #f8f9fa;
-    --card-background: #ffffff;
-    --border-color: #dee2e6;
-    --text-color: #212529;
-    --text-muted: #6c757d;
-    --success-color: #198754; /* Green */
-    --error-color: #dc3545; /* Red */
-    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    --border-radius: 8px;
-}
-
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    line-height: 1.6;
     margin: 0;
-    padding: 20px;
-    background-color: var(--background-color);
-    color: var(--text-color);
+    font-family: 'Inter', sans-serif;
+    background: #f5f7fb;
+    color: #222;
 }
 
-.main-container {
-    max-width: 1100px;
-    margin: 20px auto;
-}
-
-header {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 25px 30px;
-    border-radius: var(--border-radius);
-    margin-bottom: 25px;
+.header {
     text-align: center;
-    box-shadow: var(--box-shadow);
-}
-
-header h1 {
-    margin: 0 0 5px 0;
-    font-size: 1.8em;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
     color: white;
-}
-header p {
-    margin: 0;
-    font-size: 1em;
-    opacity: 0.9;
-     color: white;
+    padding: 1.5rem 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-.content-section {
-    background-color: var(--card-background);
-    padding: 25px 30px;
-    border-radius: var(--border-radius);
-    margin-bottom: 25px;
-    box-shadow: var(--box-shadow);
+.container {
+    width: 90%;
+    max-width: 900px;
+    margin: 2rem auto;
 }
 
-.card h2, .card h3 {
-    margin-top: 0;
-    margin-bottom: 1.2em;
-    color: var(--primary-color);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-}
-.card h3 {
-     color: #343a40;
-     border-bottom: none;
-     margin-bottom: 0.8em;
+.card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .upload-grid {
     display: flex;
-    gap: 25px;
-    margin-bottom: 20px;
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 1.5rem;
+    flex-wrap: wrap;
 }
 
-.upload-area {
+.upload-box {
     flex: 1;
-    min-width: 300px; /* Minimum width for upload areas */
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 20px;
-    background-color: #fdfdfd;
     text-align: center;
+    border: 2px dashed #3b82f6;
+    padding: 1rem;
+    border-radius: 10px;
+    transition: all 0.3s ease;
 }
 
-.upload-area label {
-    font-weight: 600;
-    font-size: 1.1em;
-    color: var(--text-color);
-    display: block;
-    margin-bottom: 5px;
+.upload-box:hover {
+    background: #f0f8ff;
+    border-color: #1d4ed8;
 }
 
-.upload-area .description {
-    font-size: 0.9em;
-    color: var(--text-muted);
-    margin-bottom: 15px;
-}
-
-input[type="file"] {
-    display: block;
-    width: calc(100% - 20px);
-    margin: 10px auto;
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background-color: #fff;
-    cursor: pointer;
-    font-size: 0.9em;
-}
-
-.image-preview {
-    display: none;
-    max-width: 90%;
-    height: 150px;
-    margin: 15px auto 0 auto;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    object-fit: contain;
-    background-color: #eee;
-}
-
-.action-button { /* Renamed for clarity */
-    display: block;
+.preview {
     width: 100%;
-    padding: 14px 25px;
-    font-size: 1.15em;
-    font-weight: 600;
-    cursor: pointer;
-    background-color: var(--success-color); /* Green button */
+    margin-top: 1rem;
+    border-radius: 8px;
+}
+
+.btn-primary {
+    background: #1d4ed8;
     color: white;
     border: none;
-    border-radius: 5px;
-    transition: background-color 0.2s ease, transform 0.1s ease;
-    margin-top: 20px; /* Added margin */
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
 }
 
-.action-button:hover {
-    background-color: #157347; /* Darker Green */
-}
-.action-button:active { transform: scale(0.98); }
-.action-button:disabled { background-color: #adb5bd; cursor: not-allowed; }
-
-
-#results-section {
-    margin-top: 30px; /* Add space above results */
+.btn-primary:hover {
+    background: #2563eb;
 }
 
 .spinner {
+    margin-top: 1rem;
+    font-weight: 600;
+    color: #3b82f6;
+}
+
+#summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+#summary-table th, #summary-table td {
+    border: 1px solid #ccc;
+    padding: 0.5rem;
     text-align: center;
-    padding: 30px;
-    font-size: 1.2em;
-    font-weight: 500;
-    color: var(--primary-color);
 }
 
-.error-message {
-    color: var(--error-color);
-    background-color: #f8d7da;
-    border: 1px solid #f5c2c7;
-    padding: 15px 20px;
-    border-radius: var(--border-radius);
-    margin-bottom: 20px;
-    font-weight: 500;
-    display: none;
-}
-.error-message:not(:empty) { display: block; }
-
-
-.success-message {
-     color: var(--success-color);
-    background-color: #d1e7dd;
-    border: 1px solid #badbcc;
-    padding: 15px 20px;
-    border-radius: var(--border-radius);
-    margin-bottom: 20px;
-    font-weight: 500;
-     display: none;
-}
-.success-message:not(:empty) { display: block; }
-
-
-.result-image-container {
-    text-align: center;
-    margin-bottom: 20px;
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    background-color: #fdfdfd;
-}
-
-#result-image {
-    max-width: 100%;
-    height: auto;
-    border: none;
-}
-
-#download-button-container {
-    text-align: center;
-    margin-top: 15px;
-}
-
-.download-button {
-    display: inline-block;
-    padding: 10px 20px;
-    background-color: var(--primary-color);
+#summary-table th {
+    background: #3b82f6;
     color: white;
+}
+
+.btn-download {
+    display: inline-block;
+    margin-top: 1rem;
+    background: #10b981;
+    color: white;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
     text-decoration: none;
-    border-radius: 5px;
-    font-size: 1em;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-.download-button:hover { background-color: #0b5ed7; }
-
-#defect-details { /* Keep this for spacing */
-     margin-top: 25px;
 }
 
-
-#no-defects-message {
-    padding: 15px;
-    background-color: #d1e7dd; /* Light green background */
-    border: 1px solid #badbcc;
-    border-radius: 5px;
-    color: #0f5132; /* Darker green text */
-    margin-top: 20px;
-    font-weight: 500;
-    text-align: center;
+.btn-download:hover {
+    background: #059669;
 }
