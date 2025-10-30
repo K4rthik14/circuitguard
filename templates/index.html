@@ -5,17 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CircuitGuard - PCB Defect Detection</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header class="header">
-        <h1>CircuitGuard</h1>
+        <h1>🧠 CircuitGuard</h1>
         <p>AI-powered PCB Defect Detection using EfficientNet-B4</p>
     </header>
 
     <main class="container">
         <section class="upload-section card">
             <h2>Upload Images</h2>
-            <form id="upload-form"> <div class="upload-grid">
+            <form id="upload-form"> 
+                <div class="upload-grid">
                     <div class="upload-box">
                         <label for="template_image">Template Image</label>
                         <p class="description">Upload the reference/defect-free PCB image.</p>
@@ -30,7 +32,7 @@
                     </div>
                 </div>
                  <div class="action-container">
-                    <button type="submit" id="detect-button" class="btn-primary"> Detect Defects</button>
+                    <button type="submit" id="detect-button" class="btn-primary">🚀 Detect Defects</button>
                     <div id="spinner" class="spinner" style="display:none;">Processing...</div>
                  </div>
             </form>
@@ -38,33 +40,41 @@
 
         <section id="results-section" class="results-section card" style="display:none;">
             <h2>Analysis Results</h2>
-             <div id="error-message" class="error-message" style="display:none;"></div> <div id="success-message" class="success-message" style="display: none;"></div>
-
+             <div id="error-message" class="error-message" style="display:none;"></div> 
+             <div id="success-message" class="success-message" style="display: none;"></div>
 
             <div id="output-display" style="display: none;">
-                <h3>Defect Summary</h3>
-                <p><strong>Total Defects Detected:</strong> <span id="defect-count">0</span></p>
-                 <div id="summary-container">
-                    <table id="summary-table">
-                        <thead>
-                            <tr>
-                                <th>Defect Type</th>
-                                <th>Count</th>
-                            </tr>
-                        </thead>
-                        <tbody id="summary-body">
-                            <tr><td colspan="2"><em>Awaiting results...</em></td></tr>
-                        </tbody>
-                    </table>
-                </div>
 
+                <div class="stats-grid">
+                    <div id="summary-container">
+                        <h3>Defect Summary</h3>
+                        <p><strong>Total Defects Detected:</strong> <span id="defect-count">0</span></p>
+                        <table id="summary-table">
+                            <thead>
+                                <tr>
+                                    <th>Defect Type</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-body">
+                                <tr><td colspan="2"><em>Awaiting results...</em></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="chart-container">
+                        <h3>Defect Count per Class</h3>
+                        <canvas id="defectCountChart"></canvas>
+                    </div>
+                </div>
                 <h3>Annotated Image</h3>
                  <div class="result-image-container">
                     <img id="result-image" src="#" alt="Annotated Result Image">
                 </div>
                 <div id="download-button-container">
                     </div>
-                 <div id="no-defects-message" style="display: none;">No defects found!</div> </div>
+                 <div id="no-defects-message" style="display: none;">✅ No defects found!</div> 
+            </div>
         </section>
     </main>
 

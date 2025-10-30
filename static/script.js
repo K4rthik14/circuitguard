@@ -148,7 +148,8 @@ form.addEventListener("submit", async (event) => {
         if (totalDefects === 0) {
             noDefectsMessage.style.display = 'block'; // Show "No defects" message
             summaryBody.innerHTML = `<tr><td colspan="2">✅ No defects found!</td></tr>`; // Indicate in table too
-            resultImage.style.display = 'none'; // Hide image container if no defects?
+            resultImage.style.display = 'block'; // Show the (unannotated) image
+            resultImage.src = imageUrl; // Set src to the returned image
             downloadButtonContainer.innerHTML = ''; // No download button if no defects
         } else {
             noDefectsMessage.style.display = 'none'; // Hide "No defects" message
@@ -192,6 +193,8 @@ form.addEventListener("submit", async (event) => {
         console.error("Detection Error:", err);
     } finally {
          detectButton.disabled = false; // Re-enable button
-         detectButton.textContent = '🚀 Detect Defects'; // Restore original text
+         detectButton.textContent = ' Detect Defects'; // Restore original text
     }
 });
+
+// <-

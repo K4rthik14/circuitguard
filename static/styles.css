@@ -274,3 +274,50 @@ input[type="file"] {
     font-weight: 500;
     text-align: center;
 }
+
+/* static/styles.css */
+
+/* ... (keep all your existing CSS from :root down to card h3) ... */
+.card h3 {
+     color: #343a40;
+     border-bottom: none;
+     margin-bottom: 0.8em;
+     margin-top: 1.5em; /* Space above subheadings */
+}
+.card h3:first-of-type {
+    margin-top: 0; 
+}
+
+/* --- ADD NEW STATS GRID STYLES --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    gap: 25px; /* Space between table and chart */
+    align-items: start; /* Align items to the top */
+    margin-top: 20px;
+    margin-bottom: 25px;
+}
+
+#chart-container {
+    width: 100%;
+    height: 350px; /* Give the chart a fixed height */
+    position: relative; /* Needed for Chart.js responsiveness */
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    border-radius: var(--border-radius);
+}
+
+/* --- Responsive adjustment for stats grid --- */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr; /* Stack on small screens */
+    }
+    #chart-container {
+        margin-top: 20px; /* Add space when stacked */
+    }
+}
+/* --- END OF NEW STYLES --- */
+
+
+/* ... (all other styles remain the same) ... */
+/* e.g., .upload-section h2, .upload-grid, .upload-box, etc. */
