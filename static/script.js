@@ -18,8 +18,17 @@ const noDefectsMessage = document.getElementById('no-defects-message');
 const downloadButtonContainer = document.getElementById('download-button-container');
 const detectButton = document.getElementById('detect-button');
 
+// ▼▼▼ ADD THIS SECTION ▼▼▼
+const chartContainer = document.getElementById('chart-container');
+const chartCanvas = document.getElementById('defect-chart');
+// This variable will hold our chart instance so we can destroy it later
+window.myDefectChart = null; 
+// ▲▲▲ END OF ADDED SECTION ▲▲▲
+
+
 // --- Image Preview Logic ---
 function setupPreview(inputId, previewId) {
+    // ... (your existing setupPreview function - no changes needed)
     const input = document.getElementById(inputId);
     const preview = document.getElementById(previewId);
 
@@ -53,10 +62,92 @@ function setupPreview(inputId, previewId) {
 setupPreview("template_image", "template-preview");
 setupPreview("test_image", "test-preview");
 
+// ▼▼▼ ADD THESE NEW HELPER FUNCTIONS ▼▼▼
+
+/**
+ * Counts the occurrences of each defect label.
+ * @param {Array} defects - The list of defect objects from the API.
+ * @returns {Object} - An object like { open: 2, short: 1, ... }
+ */
+function summarizeDefects(defects) {
+    const summaryCounts = {};
+    defects.forEach(defect => {
+        summaryCounts[defect.label] = (summaryCounts[defect.label] || 0) + 1;
+    });
+    return summaryCounts;
+}
+
+/**
+ * Creates or updates the bar chart.
+ * @param {Object} summaryCounts - The object from summarizeDefects.
+ */
+function createDefectChart(summaryCounts) {
+    const ctx = chartCanvas.getContext('2d');
+    const labels = Object.keys(summaryCounts);
+    const data = Object.values(summaryCounts);
+
+    // If a chart already exists, destroy it
+    if (window.myDefectChart) {
+        window.myDefectChart.destroy();
+    }
+
+    // Create the new chart
+    window.myDefectChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Defect Count',
+                data: data,
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.2)',
+                    'rgba(54, 162, 235, 0.2)',
+                    'rgba(255, 206, 86, 0.2)',
+                    'rgba(75, 192, 192, 0.2)',
+                    'rgba(153, 102, 255, 0.2)',
+                    'rgba(255, 159, 64, 0.2)'
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(153, 102, 255, 1)',
+                    'rgba(255, 159, 64, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        // Ensure only whole numbers are used for ticks
+                        stepSize: 1
+                    }
+                }
+            },
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false // Hide legend since it's a simple chart
+                }
+            }
+        }
+    });
+
+    chartContainer.style.display = 'block'; // Show the chart
+}
+
+// ▲▲▲ END OF ADDED FUNCTIONS ▲▲▲
+
+
 // --- Form Submission ---
 form.addEventListener("submit", async (event) => {
     event.preventDefault(); // Prevent default form submission & page reload
 
+    // ... (your existing validation and FormData logic) ...
     const templateFile = templateInput.files[0];
     const testFile = testInput.files[0];
 
@@ -90,6 +181,12 @@ form.addEventListener("submit", async (event) => {
     noDefectsMessage.style.display = 'none';
     downloadButtonContainer.innerHTML = '';
     summaryBody.innerHTML = '<tr><td colspan="2"><em>Processing...</em></td></tr>'; // Update table state
+    
+    // ▼▼▼ HIDE CHART CONTAINER ON NEW SUBMISSION ▼▼▼
+    chartContainer.style.display = 'none';
+    if (window.myDefectChart) {
+        window.myDefectChart.destroy(); // Clear old chart
+    }
 
     try {
         // --- API Call ---
@@ -104,18 +201,16 @@ form.addEventListener("submit", async (event) => {
         spinner.style.display = "none"; // Hide spinner first
 
         if (!response.ok) {
+            // ... (your existing error handling - no changes needed)
             let errorMsg = `Error ${response.status}: ${response.statusText}`;
             try {
-                // Try reading error text first (more likely for non-JSON errors)
-                const errorText = await response.text();
-                // Attempt to parse as JSON *only if* it looks like JSON
+                 const errorText = await response.text();
                  if (errorText.trim().startsWith('{')) {
                      const errorData = JSON.parse(errorText);
                      if (errorData && errorData.error) {
                          errorMsg = `Server Error: ${errorData.error}`;
                      }
                  } else if (errorText) {
-                     // Use the plain text error if available
                      errorMsg = `Server Error: ${errorText}`;
                  }
             } catch (e) { console.warn("Could not parse error response."); }
@@ -126,7 +221,7 @@ form.addEventListener("submit", async (event) => {
         const data = await response.json(); // Expecting JSON
         console.log("Received data:", data);
 
-        // Validate expected JSON structure
+        // ... (your existing data validation - no changes needed)
         if (!data || typeof data.annotated_image_url !== 'string' || !Array.isArray(data.defects)) {
              console.error("Invalid JSON response format:", data);
              throw new Error("Invalid response format from server.");
@@ -148,16 +243,17 @@ form.addEventListener("submit", async (event) => {
         if (totalDefects === 0) {
             noDefectsMessage.style.display = 'block'; // Show "No defects" message
             summaryBody.innerHTML = `<tr><td colspan="2">✅ No defects found!</td></tr>`; // Indicate in table too
-            resultImage.style.display = 'block'; // Show the (unannotated) image
-            resultImage.src = imageUrl; // Set src to the returned image
+            resultImage.style.display = 'none'; // Hide image container if no defects?
             downloadButtonContainer.innerHTML = ''; // No download button if no defects
+            
+            // ▼▼▼ HIDE CHART CONTAINER IF NO DEFECTS ▼▼▼
+            chartContainer.style.display = 'none';
+
         } else {
             noDefectsMessage.style.display = 'none'; // Hide "No defects" message
-            // Calculate counts per defect type
-            const summaryCounts = {};
-            defects.forEach(defect => {
-                summaryCounts[defect.label] = (summaryCounts[defect.label] || 0) + 1;
-            });
+            
+            // ▼▼▼ GET SUMMARY COUNTS (REPLACES OLD LOGIC) ▼▼▼
+            const summaryCounts = summarizeDefects(defects);
 
             // Populate table rows
             for (const [type, count] of Object.entries(summaryCounts)) {
@@ -167,12 +263,17 @@ form.addEventListener("submit", async (event) => {
                 cellType.textContent = type;
                 cellCount.textContent = count;
             }
+            
+            // ▼▼▼ CALL CHART FUNCTION ▼▼▼
+            createDefectChart(summaryCounts);
+
 
             // Display annotated image using the data URL
             resultImage.src = imageUrl;
             resultImage.style.display = "block";
 
             // Set up download link for the annotated image (using the data URL)
+            // ... (your existing download link logic - no changes)
             const downloadLink = document.createElement('a');
             downloadLink.href = imageUrl;
             const safeFilename = testFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
@@ -182,9 +283,9 @@ form.addEventListener("submit", async (event) => {
             downloadButtonContainer.appendChild(downloadLink);
         }
 
-
     } catch (err) {
         // --- Handle Errors ---
+        // ... (your existing catch block - no changes needed)
         spinner.style.display = "none";
         errorMessage.textContent = "Error: " + err.message;
         errorMessage.style.display = 'block'; // Make error visible
@@ -193,8 +294,6 @@ form.addEventListener("submit", async (event) => {
         console.error("Detection Error:", err);
     } finally {
          detectButton.disabled = false; // Re-enable button
-         detectButton.textContent = ' Detect Defects'; // Restore original text
+         detectButton.textContent = '🚀 Detect Defects'; // Restore original text
     }
 });
-
-// <-

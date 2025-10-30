@@ -316,8 +316,12 @@ input[type="file"] {
         margin-top: 20px; /* Add space when stacked */
     }
 }
-/* --- END OF NEW STYLES --- */
 
+#chart-container {
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: #fdfdfd;
+    margin-top: 25px;
+}
 
-/* ... (all other styles remain the same) ... */
-/* e.g., .upload-section h2, .upload-grid, .upload-box, etc. */
