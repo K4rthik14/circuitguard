@@ -16,7 +16,7 @@ MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "final_model.pth")
 CLASSES = ['copper', 'mousebite', 'open', 'pin-hole', 'short', 'spur']
 IMG_SIZE = 128
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MIN_CONTOUR_AREA_DEFAULT = 20
+MIN_CONTOUR_AREA_DEFAULT = 5
 
 # --- Model Loading (Cached using a simple dictionary) ---
 _model_cache = {}
@@ -120,22 +120,38 @@ def find_defects(template_img_pil: Image.Image, test_img_pil: Image.Image, min_a
     output_image_cv_bgr = cv2.cvtColor(np.array(test_img_rgb_pil), cv2.COLOR_RGB2BGR)
     return rois, boxes, output_image_cv_bgr # Return BGR format for OpenCV drawing
 
+# services/defect_service.py
+
 # --- Drawing ---
 def draw_annotations(image_cv_bgr: np.ndarray, boxes: List[Tuple[int,int,int,int]], labels: List[str]) -> np.ndarray:
     """Draws bounding boxes and labels on the image (expects BGR)."""
     out = image_cv_bgr.copy()
+    img_height, img_width = out.shape[:2] # Get image dimensions for boundary checks
+    padding = 5 # Pixels to add around the original box - ADJUST AS NEEDED
+
     for (x,y,w,h), label in zip(boxes, labels):
-        # Blue box (BGR color)
-        cv2.rectangle(out, (x,y), (x+w, y+h), (255,0,0), 2)
-        text_y = max(12, y - 6) # Position label above box
-        # Add white background for label text
+
+        # --- Calculate padded coordinates ---
+        x1_pad = max(0, x - padding) # New top-left x (don't go below 0)
+        y1_pad = max(0, y - padding) # New top-left y (don't go below 0)
+        x2_pad = min(img_width, x + w + padding) # New bottom-right x (don't exceed width)
+        y2_pad = min(img_height, y + h + padding) # New bottom-right y (don't exceed height)
+        # --- End calculation ---
+
+        # Draw the LARGER rectangle using padded coordinates
+        cv2.rectangle(out, (x1_pad, y1_pad), (x2_pad, y2_pad), (255,0,0), 2) # Blue box, thickness 2
+
+        # --- Label drawing logic (adjust position relative to padded box) ---
+        text_y = max(12, y1_pad - 6) # Position label above the padded box
         (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
         # Ensure background box doesn't go off-screen top
         bg_y1 = max(0, text_y - text_height - baseline)
         bg_y2 = text_y + baseline
-        cv2.rectangle(out, (x, bg_y1), (x + text_width, bg_y2), (255, 255, 255), cv2.FILLED)
-        # Add blue label text
-        cv2.putText(out, label, (x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,0,0), 2, cv2.LINE_AA)
+        # Draw background and text relative to original x or padded x1_pad
+        cv2.rectangle(out, (x1_pad, bg_y1), (x1_pad + text_width, bg_y2), (255, 255, 255), cv2.FILLED)
+        cv2.putText(out, label, (x1_pad, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,0,0), 2, cv2.LINE_AA)
+        # --- End label drawing ---
+
     return out
 
 # --- Main Service Function (Module 6 Logic) ---

@@ -1,6 +1,6 @@
 /* static/styles.css */
 :root {
-    --primary-color: #0d6efd; /* Bootstrap Blue */
+    --primary-color: #724de0; /* Bootstrap Blue */
     --secondary-color: #6c757d; /* Gray */
     --background-color: #f8f9fa;
     --card-background: #ffffff;
@@ -234,7 +234,7 @@ input[type="file"] {
     cursor: pointer;
     transition: background-color 0.2s ease;
 }
-.btn-download:hover { background-color: #0b5ed7; }
+.btn-download:hover { background-color: #0bc3d7; }
 
 
 /* Summary Table Styles */
