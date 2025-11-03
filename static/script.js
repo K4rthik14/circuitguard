@@ -106,200 +106,77 @@ function createDefectCharts(summaryCounts) {
 // ▲▲▲ END OF ADDED FUNCTIONS ▲▲▲
 
 
-// --- Form Submission ---
 form.addEventListener("submit", async (event) => {
-    event.preventDefault(); // Prevent default form submission & page reload
+    event.preventDefault();
 
-    // ... (your existing validation and FormData logic) ...
     const templateFile = templateInput.files[0];
     const testFile = testInput.files[0];
-
-    // --- Validation ---
     if (!templateFile || !testFile) {
         errorMessage.textContent = "⚠️ Please upload both Template and Test images!";
-        successMessage.textContent = '';
-        errorMessage.style.display = 'block'; // Show error
-        resultsSection.style.display = "block";
-        outputDisplay.style.display = 'none';
-        spinner.style.display = 'none';
-        noDefectsMessage.style.display = 'none';
+        errorMessage.style.display = 'block';
         return;
     }
 
-    // --- Prepare FormData ---
+    // ✅ Get slider values
+    const diffThreshold = document.getElementById('diffThreshold').value;
+    const minArea = document.getElementById('minArea').value;
+    const morphIter = document.getElementById('morphIter').value;
+
+    // Prepare FormData
     const formData = new FormData();
     formData.append("template_image", templateFile);
     formData.append("test_image", testFile);
+    formData.append("diff_threshold", diffThreshold);
+    formData.append("min_area", minArea);
+    formData.append("morph_iterations", morphIter);
 
-    // --- UI Update: Start Processing ---
-    spinner.style.display = "block"; // Show spinner next to button
+    spinner.style.display = "block";
     detectButton.disabled = true;
-    detectButton.textContent = 'Processing...';
-    errorMessage.textContent = ""; // Clear errors
-    errorMessage.style.display = 'none'; // Hide error area
-    successMessage.textContent = "";
-    successMessage.style.display = 'none'; // Hide success area
-    resultsSection.style.display = "block"; // Show results section container
-    outputDisplay.style.display = "none"; // Hide specific output area initially
-    noDefectsMessage.style.display = 'none';
-    downloadButtonContainer.innerHTML = '';
-    summaryBody.innerHTML = '<tr><td colspan="2"><em>Processing...</em></td></tr>'; // Update table state
-    
-    // ▼▼▼ HIDE CHART CONTAINER ON NEW SUBMISSION ▼▼▼
-    chartContainer.style.display = 'none';
-    if (window.myDefectChart) {
-        window.myDefectChart.destroy(); // Clear old chart
-    }
+    detectButton.textContent = "Processing...";
 
     try {
-        // --- API Call ---
-        console.log("Sending request to /api/detect");
-        const response = await fetch("/api/detect", {
-            method: "POST",
-            body: formData,
-        });
-        console.log(`Received response with status: ${response.status}`);
+        const response = await fetch("/api/detect", { method: "POST", body: formData });
+        const data = await response.json();
 
-        // --- Handle API Response ---
-        spinner.style.display = "none"; // Hide spinner first
+        spinner.style.display = "none";
+        detectButton.disabled = false;
+        detectButton.textContent = "Detect Defects";
 
-        if (!response.ok) {
-            // ... (your existing error handling - no changes needed)
-            let errorMsg = `Error ${response.status}: ${response.statusText}`;
-            try {
-                 const errorText = await response.text();
-                 if (errorText.trim().startsWith('{')) {
-                     const errorData = JSON.parse(errorText);
-                     if (errorData && errorData.error) {
-                         errorMsg = `Server Error: ${errorData.error}`;
-                     }
-                 } else if (errorText) {
-                     errorMsg = `Server Error: ${errorText}`;
-                 }
-            } catch (e) { console.warn("Could not parse error response."); }
-            throw new Error(errorMsg); // Propagate error
-        }
-
-        // --- Process Successful JSON Response ---
-        const data = await response.json(); // Expecting JSON
-        console.log("Received data:", data);
-
-        // ... (your existing data validation - no changes needed)
-        if (!data || typeof data.annotated_image_url !== 'string' || !Array.isArray(data.defects)) {
-             console.error("Invalid JSON response format:", data);
-             throw new Error("Invalid response format from server.");
-        }
+        if (!response.ok || !data.defects) throw new Error(data.error || "Detection failed.");
 
         const defects = data.defects;
-        const imageUrl = data.annotated_image_url; // Base64 Data URL
+        const imageUrl = data.annotated_image_url;
+        const total = defects.length;
 
-        // --- Update UI with Actual Data ---
-        successMessage.textContent = ' Analysis Complete!';
-        successMessage.style.display = 'block';
-        outputDisplay.style.display = "block"; // Show the output area
+        resultsSection.style.display = "block";
+        outputDisplay.style.display = "block";
+        resultImage.src = imageUrl;
+        defectCount.textContent = total;
 
-        // Update defect summary table
-        const totalDefects = defects.length;
-        defectCount.textContent = totalDefects; // Update total count span
-
-        summaryBody.innerHTML = ""; // Clear "Processing..." message
-        if (totalDefects === 0) {
-            noDefectsMessage.style.display = 'block'; // Show "No defects" message
-            summaryBody.innerHTML = `<tr><td colspan="2">✅ No defects found!</td></tr>`; // Indicate in table too
-            resultImage.style.display = 'none'; // Hide image container if no defects?
-            downloadButtonContainer.innerHTML = ''; // No download button if no defects
-            
-            // ▼▼▼ HIDE CHART CONTAINER IF NO DEFECTS ▼▼▼
-            chartContainer.style.display = 'none';
-
-        } else {
-            noDefectsMessage.style.display = 'none'; // Hide "No defects" message
-            
-            // ▼▼▼ GET SUMMARY COUNTS (REPLACES OLD LOGIC) ▼▼▼
-            const summaryCounts = summarizeDefects(defects);
-
-            // Populate table rows
-            for (const [type, count] of Object.entries(summaryCounts)) {
-                const row = summaryBody.insertRow();
-                const cellType = row.insertCell();
-                const cellCount = row.insertCell();
-                cellType.textContent = type;
-                cellCount.textContent = count;
-            }
-            
-            // ▼▼▼ CALL CHART FUNCTION ▼▼▼
-            createDefectChart(summaryCounts);
-
-
-            // Display annotated image using the data URL
-            resultImage.src = imageUrl;
-            resultImage.style.display = "block";
-
-            // Set up download link for the annotated image (using the data URL)
-            // ... (your existing download link logic - no changes)
-            const downloadLink = document.createElement('a');
-            downloadLink.href = imageUrl;
-            const safeFilename = testFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-            downloadLink.download = `annotated_${safeFilename}.png`; // Ensure .png
-            downloadLink.textContent = '⬇️ Download Annotated Image';
-            downloadLink.className = 'btn-download'; // Use class for styling
-            downloadButtonContainer.appendChild(downloadLink);
-            // Create "Export as PDF" button
-            const exportBtn = document.createElement('button');
-            exportBtn.textContent = '📄 Export Analysis as PDF';
-            exportBtn.className = 'btn-download';
-            exportBtn.onclick = async () => {
-    try {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'pt', 'a4');
-
-        // Capture the chart as an image
-        const chartImage = chartCanvas.toDataURL('image/png', 1.0);
-
-        // Capture the summary table using html2canvas
-        const summaryCanvas = await html2canvas(document.getElementById('summary-container'));
-        const summaryImage = summaryCanvas.toDataURL('image/png', 1.0);
-
-        // Capture annotated image
-        const annotatedImg = resultImage.src;
-
-        // --- Add to PDF ---
-        pdf.setFontSize(20);
-        pdf.text('CircuitGuard - Defect Analysis Report', 40, 40);
-
-        pdf.setFontSize(12);
-        pdf.text(`Total Defects: ${totalDefects}`, 40, 70);
-
-        pdf.addImage(summaryImage, 'PNG', 40, 90, 500, 0);
-        pdf.addPage();
-        pdf.text('Defect Distribution', 40, 40);
-        pdf.addImage(chartImage, 'PNG', 80, 70, 400, 0);
-        pdf.addPage();
-        pdf.text('Annotated PCB Image', 40, 40);
-        pdf.addImage(annotatedImg, 'PNG', 40, 70, 500, 0);
-
-        pdf.save(`Defect_Report_${safeFilename}.pdf`);
-    } catch (err) {
-        alert('Failed to export PDF: ' + err.message);
-        console.error(err);
-    }
-};
-
-// Append the export button below the image download link
-downloadButtonContainer.appendChild(exportBtn);
-
+        // ✅ Summarize & show chart
+        const summaryCounts = summarizeDefects(defects);
+        summaryBody.innerHTML = "";
+        for (const [label, count] of Object.entries(summaryCounts)) {
+            summaryBody.innerHTML += `<tr><td>${label}</td><td>${count}</td></tr>`;
         }
 
+        createDefectCharts(summaryCounts); // fixed function name
+
+        // ✅ Show download button
+        const downloadLink = document.createElement('a');
+        downloadLink.href = imageUrl;
+        downloadLink.download = 'annotated_result.png';
+        downloadLink.textContent = '⬇️ Download Annotated Image';
+        downloadLink.className = 'btn-download';
+        downloadButtonContainer.innerHTML = '';
+        downloadButtonContainer.appendChild(downloadLink);
+
     } catch (err) {
-        // --- Handle Errors ---
         spinner.style.display = "none";
-        errorMessage.textContent = "Error: " + err.message;
-        errorMessage.style.display = 'block'; // Make error visible
-        successMessage.style.display = 'none'; // Hide success message
-        outputDisplay.style.display = "none"; // Hide output area on error
-        console.error("Detection Error:", err);
-    } finally {
-         detectButton.disabled = false; // Re-enable button
-         detectButton.textContent = 'Detect Defects'; // Restore original text
+        detectButton.disabled = false;
+        detectButton.textContent = "Detect Defects";
+        errorMessage.textContent = err.message;
+        errorMessage.style.display = 'block';
+        console.error(err);
     }
 });
