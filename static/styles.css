@@ -329,18 +329,29 @@ input[type="file"] {
     margin-left: 10px;
 }
 
-.param-controls {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 10px;
+.container {
+    display: flex;
+    gap: 20px;
 }
-.param-controls label {
-  font-weight: 600;
-  color: #444;
+
+.sidebar {
+    width: 260px;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 12px;
+    height: fit-content;
 }
-.param-controls input {
-  width: 80px;
-  padding: 4px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
+
+.slider-group {
+    margin-bottom: 15px;
+}
+
+.slider-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.slider-group input[type="range"] {
+    width: 100%;
 }

@@ -24,6 +24,13 @@ const chartCanvas = document.getElementById('defect-chart');
 // This variable will hold our chart instance so we can destroy it later
 window.myDefectChart = null; 
 
+// Update live values beside sliders
+['diffThreshold', 'minArea', 'morphIter'].forEach(id => {
+    const slider = document.getElementById(id);
+    const display = document.getElementById(id === 'diffThreshold' ? 'diffVal' :
+                    id === 'minArea' ? 'areaVal' : 'morphVal');
+    slider.addEventListener('input', () => display.textContent = slider.value);
+});
 
 
 // --- Image Preview Logic ---
@@ -126,9 +133,11 @@ form.addEventListener("submit", async (event) => {
     const formData = new FormData();
     formData.append("template_image", templateFile);
     formData.append("test_image", testFile);
-    formData.append("diff_threshold", diffThreshold);
-    formData.append("min_area", minArea);
-    formData.append("morph_iterations", morphIter);
+    // Add slider values to the request
+    formData.append("diff_threshold", document.getElementById("diffThreshold").value);
+    formData.append("min_area", document.getElementById("minArea").value);
+    formData.append("morph_iterations", document.getElementById("morphIter").value);
+
 
     spinner.style.display = "block";
     detectButton.disabled = true;
