@@ -81,43 +81,27 @@ function summarizeDefects(defects) {
  * Creates or updates the bar chart.
  * @param {Object} summaryCounts - The object from summarizeDefects.
  */
-function createDefectChart(summaryCounts) {
-    const ctx = chartCanvas.getContext('2d');
+function createDefectCharts(summaryCounts) {
+    const ctx1 = document.getElementById('histogramCanvas').getContext('2d');
+    const ctx2 = document.getElementById('pieCanvas').getContext('2d');
     const labels = Object.keys(summaryCounts);
     const data = Object.values(summaryCounts);
 
-    // Destroy old chart if exists
-    if (window.myDefectChart) window.myDefectChart.destroy();
+    if (window.histogramChart) window.histogramChart.destroy();
+    if (window.pieChart) window.pieChart.destroy();
 
-    window.myDefectChart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: [
-                    '#FF6384', '#36A2EB', '#FFCE56',
-                    '#4BC0C0', '#9966FF', '#FF9F40'
-                ],
-                borderColor: '#ffffff',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom' },
-                title: {
-                    display: true,
-                    text: 'Defect Distribution'
-                }
-            }
-        }
+    window.histogramChart = new Chart(ctx1, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Defect Count', data }] },
+        options: { responsive: true, plugins: { title: { display: true, text: 'Defect Histogram' } } }
     });
 
-    chartContainer.style.display = 'block';
+    window.pieChart = new Chart(ctx2, {
+        type: 'pie',
+        data: { labels, datasets: [{ data }] },
+        options: { responsive: true, plugins: { title: { display: true, text: 'Defect Distribution' } } }
+    });
 }
-
 
 // ▲▲▲ END OF ADDED FUNCTIONS ▲▲▲
 
@@ -261,10 +245,10 @@ form.addEventListener("submit", async (event) => {
             downloadLink.className = 'btn-download'; // Use class for styling
             downloadButtonContainer.appendChild(downloadLink);
             // Create "Export as PDF" button
-const exportBtn = document.createElement('button');
-exportBtn.textContent = '📄 Export Analysis as PDF';
-exportBtn.className = 'btn-download';
-exportBtn.onclick = async () => {
+            const exportBtn = document.createElement('button');
+            exportBtn.textContent = '📄 Export Analysis as PDF';
+            exportBtn.className = 'btn-download';
+            exportBtn.onclick = async () => {
     try {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'pt', 'a4');

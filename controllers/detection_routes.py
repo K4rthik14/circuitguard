@@ -41,14 +41,22 @@ def detect_defects_api():
         test_img_pil = Image.open(test_file.stream).convert("RGB")
         logging.info("Template and Test images loaded successfully from request.")
 
+        # --- Get parameters from the frontend (with defaults) ---
+        diff_threshold = int(request.form.get('diff_threshold', 0))
+        min_area = int(request.form.get('min_area', 5))
+        morph_iterations = int(request.form.get('morph_iterations', 2))
+
+        logging.info(f"Parameters received -> diff_threshold={diff_threshold}, morph_iterations={morph_iterations}, min_area={min_area}")
+
         # --- Call the Service Layer ---
         logging.info("Calling defect service to process images...")
-        # Service returns annotated image (BGR) AND defect details list
         annotated_cv_bgr, defect_details = process_and_classify_defects(
-            template_img_pil, test_img_pil
-            # Add min_area passing if needed: min_area=request.form.get('min_area', MIN_CONTOUR_AREA_DEFAULT, type=int)
+            template_img_pil,
+            test_img_pil,
+            diff_threshold=diff_threshold,
+            morph_iterations=morph_iterations,
+            min_area=min_area
         )
-        logging.info(f"Service processing complete. Found {len(defect_details)} defects.")
 
         # --- Prepare Response ---
         # 1. Encode annotated image to PNG bytes

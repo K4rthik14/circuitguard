@@ -15,6 +15,11 @@
         <h1>CircuitGuard</h1>
         <p>AI-powered PCB Defect Detection using EfficientNet-B4</p>
     </header>
+    <div class="param-controls">
+         <label>Difference Threshold: <input type="number" id="diffThreshold" min="0" max="255" value="0"></label>
+         <label>Min Area: <input type="number" id="minArea" min="1" max="500" value="5"></label>
+         <label>Morph Iterations: <input type="number" id="morphIter" min="1" max="5" value="2"></label>
+    </div>
 
     <main class="container">
         <section class="upload-section card">
@@ -62,10 +67,11 @@
                     </table>
                 </div>
 
-                <div id="chart-container" style="display: none; margin-top: 20px;">
-                    <h3>Defect Distribution</h3>
-                    <canvas id="defect-chart"></canvas>
+                <div id="chartContainer">
+                    <canvas id="histogramCanvas"></canvas>
+                    <canvas id="pieCanvas"></canvas>
                 </div>
+
                 <h3>Annotated Image</h3>
                  <div class="result-image-container">
                     <img id="result-image" src="#" alt="Annotated Result Image">

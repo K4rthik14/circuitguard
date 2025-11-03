@@ -80,45 +80,52 @@ def classify_roi(roi_pil: Image.Image, model) -> str:
         return "unknown" # Fallback label
 
 # --- Image Processing ---
-def find_defects(template_img_pil: Image.Image, test_img_pil: Image.Image, min_area:int=MIN_CONTOUR_AREA_DEFAULT) -> Tuple[List[Image.Image], List[Tuple], np.ndarray]:
-    """Performs subtraction, thresholding, and contour extraction."""
-    template_cv = np.array(template_img_pil.convert('L')) # Grayscale
-    test_cv = np.array(test_img_pil.convert('L'))     # Grayscale
+def find_defects(
+    template_img_pil: Image.Image,
+    test_img_pil: Image.Image,
+    diff_threshold: int = 0,
+    morph_iterations: int = 2,
+    min_area: int = MIN_CONTOUR_AREA_DEFAULT
+):
+
+    """
+    Performs subtraction, thresholding, and contour extraction.
+    Returns ROIs, boxes, processed BGR image, and contour areas.
+    """
+    template_cv = np.array(template_img_pil.convert('L'))
+    test_cv = np.array(test_img_pil.convert('L'))
     h, w = template_cv.shape
-    test_cv = cv2.resize(test_cv, (w, h))             # Ensure same size
+    test_cv = cv2.resize(test_cv, (w, h))
 
-    # Image Subtraction & Thresholding
+    # --- Image Subtraction ---
     diff = cv2.absdiff(template_cv, test_cv)
-    _, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    kernel = np.ones((3,3), np.uint8)
-    mask_clean = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=2) # Erosion -> Dilation
-    mask_clean = cv2.morphologyEx(mask_clean, cv2.MORPH_CLOSE, kernel, iterations=1) # Dilation -> Erosion
 
-    # Contour Extraction
+    # --- Thresholding ---
+    if diff_threshold > 0:
+        _, mask = cv2.threshold(diff, diff_threshold, 255, cv2.THRESH_BINARY)
+    else:
+        _, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    kernel = np.ones((3,3), np.uint8)
+    mask_clean = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=morph_iterations)
+    mask_clean = cv2.morphologyEx(mask_clean, cv2.MORPH_CLOSE, kernel, iterations=1)
+
     contours, _ = cv2.findContours(mask_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    rois, boxes = [], []
-    # Use original color test image for cropping ROIs
+    rois, boxes, areas = [], [], []
     test_img_rgb_pil = test_img_pil.convert('RGB')
 
     for cnt in contours:
-        if cv2.contourArea(cnt) > min_area:
-            x,y,w_box,h_box = cv2.boundingRect(cnt)
-            # Add padding check to avoid errors on edges
-            if x + w_box <= test_img_rgb_pil.width and y + h_box <= test_img_rgb_pil.height:
-                # Ensure width and height are positive before cropping
-                if w_box > 0 and h_box > 0:
-                    roi_pil = test_img_rgb_pil.crop((x, y, x + w_box, y + h_box))
-                    rois.append(roi_pil)
-                    boxes.append((x,y,w_box,h_box))
-                else:
-                    print(f"Warning: Bounding box ({x},{y},{w_box},{h_box}) has zero width or height. Skipping ROI.")
-            else:
-                print(f"Warning: Bounding box ({x},{y},{w_box},{h_box}) exceeds image dimensions ({test_img_rgb_pil.width}x{test_img_rgb_pil.height}). Skipping ROI.")
+        area = cv2.contourArea(cnt)
+        if area > min_area:
+            x, y, w_box, h_box = cv2.boundingRect(cnt)
+            roi_pil = test_img_rgb_pil.crop((x, y, x + w_box, y + h_box))
+            rois.append(roi_pil)
+            boxes.append((x, y, w_box, h_box))
+            areas.append(area)
 
-    # Return RGB version of test image for drawing annotations later
     output_image_cv_bgr = cv2.cvtColor(np.array(test_img_rgb_pil), cv2.COLOR_RGB2BGR)
-    return rois, boxes, output_image_cv_bgr # Return BGR format for OpenCV drawing
+    return rois, boxes, output_image_cv_bgr, areas
 
 # services/defect_service.py
 
@@ -155,35 +162,40 @@ def draw_annotations(image_cv_bgr: np.ndarray, boxes: List[Tuple[int,int,int,int
     return out
 
 # --- Main Service Function (Module 6 Logic) ---
-def process_and_classify_defects(template_pil: Image.Image, test_pil: Image.Image, min_area: int = MIN_CONTOUR_AREA_DEFAULT) -> Tuple[np.ndarray, List[Dict]]:
-    """
-    Main service function: Finds defects, classifies them, draws annotations.
-    Returns the annotated OpenCV image (BGR) and a list of defect details.
-    """
-    # Load model (uses cache)
+def process_and_classify_defects(
+    template_pil: Image.Image,
+    test_pil: Image.Image,
+    diff_threshold: int = 0,
+    morph_iterations: int = 2,
+    min_area: int = MIN_CONTOUR_AREA_DEFAULT
+):
+
+    """Main service: finds, classifies, annotates, and measures defect areas."""
     model = load_classification_model(MODEL_PATH, len(CLASSES))
 
-    # Find defect ROIs and bounding boxes using image processing pipeline
-    rois, boxes, output_image_cv_bgr = find_defects(template_pil, test_pil, min_area=min_area)
+    rois, boxes, output_image_cv_bgr, areas = find_defects(
+        template_pil, test_pil,
+        diff_threshold=diff_threshold,
+        morph_iterations=morph_iterations,
+        min_area=min_area
+    )
 
     defect_details = []
     if not rois:
-        # Return the original test image (converted to BGR) if no defects found
-        print("No ROIs found meeting minimum area criteria.")
         return cv2.cvtColor(np.array(test_pil.convert('RGB')), cv2.COLOR_RGB2BGR), defect_details
 
-    # Classify each ROI using the loaded model
-    print(f"Classifying {len(rois)} ROIs...")
     labels = [classify_roi(roi, model) for roi in rois]
-
-    # Draw annotations on the output image
-    print("Drawing annotations...")
     annotated_cv_bgr = draw_annotations(output_image_cv_bgr, boxes, labels)
 
-    # Prepare defect details list
-    for idx, (label, (x,y,w,h)) in enumerate(zip(labels, boxes)):
-        defect_details.append({"id": idx+1, "label": label, "x": x, "y": y, "w": w, "h": h})
+    for idx, (label, (x, y, w, h), area) in enumerate(zip(labels, boxes, areas)):
+        defect_details.append({
+            "id": idx + 1,
+            "label": label,
+            "x": int(x),
+            "y": int(y),
+            "w": int(w),
+            "h": int(h),
+            "area": round(float(area), 2)
+        })
 
-    print(f"Prepared details for {len(defect_details)} defects.")
-    # Return annotated image (BGR) and defect list
     return annotated_cv_bgr, defect_details
