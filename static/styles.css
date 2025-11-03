@@ -271,16 +271,14 @@ input[type="file"] {
 /* --- Stats Grid --- */
 .stats-grid {
     display: grid;
-    /* Updated to 3 columns */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(2, minmax(280px, 1fr)); /* two charts: bar and pie */
     gap: 25px;
     align-items: start;
     margin-top: 20px;
     margin-bottom: 25px;
     max-width: 100%;
 }
-/* Updated container IDs */
-#chart-container-bar, #chart-container-pie, #chart-container-scatter {
+#chart-container-bar, #chart-container-pie {
     width: 100%;
     height: 350px;
     position: relative;

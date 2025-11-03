@@ -1,7 +1,6 @@
 // static/script.js (rebuilt)
 
 let myBarChart = null;
-let myScatterChart = null;
 let myPieChart = null;
 let lastAnalysisData = null;
 
@@ -96,7 +95,6 @@ form.addEventListener('submit', async (e) => {
     summaryBody.innerHTML = '<tr><td colspan="6"><em>Processing...</em></td></tr>';
 
     if (myBarChart) myBarChart.destroy();
-    if (myScatterChart) myScatterChart.destroy();
     if (myPieChart) myPieChart.destroy();
 
     try {
@@ -127,12 +125,10 @@ form.addEventListener('submit', async (e) => {
             // Hide chart containers
             document.getElementById('chart-container-bar').style.display = 'none';
             document.getElementById('chart-container-pie').style.display = 'none';
-            document.getElementById('chart-container-scatter').style.display = 'none';
         } else {
-             // Show chart containers
+              // Show chart containers
             document.getElementById('chart-container-bar').style.display = 'block';
             document.getElementById('chart-container-pie').style.display = 'block';
-            document.getElementById('chart-container-scatter').style.display = 'block';
 
             // Populate table
             defects.forEach(d => {
@@ -142,8 +138,7 @@ form.addEventListener('submit', async (e) => {
 
             // Render charts
             renderDefectChart(summaryCounts);
-            renderDefectPie(summaryCounts);
-            renderScatterPlot(defects);
+             renderDefectPie(summaryCounts);
         }
 
         // Add Download buttons
@@ -310,7 +305,6 @@ async function generatePDF() {
             
             const barCanvas = document.getElementById('defectCountChart');
             const pieCanvas = document.getElementById('defectPieChart');
-            const scatterCanvas = document.getElementById('defectScatterPlot');
             const chartWidth = (pdfWidth - margin*2 - 10) / 2; // Half width minus gap
             
             try {
@@ -325,14 +319,7 @@ async function generatePDF() {
                     pdf.addImage(pieImg,'PNG', margin + chartWidth + 10, yPos, chartWidth, pieHeight);
                     yPos += Math.max(pieHeight, barHeight || 0) + 10;
                 }
-                if (scatterCanvas) {
-                    if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
-                    pdf.setFontSize(10); pdf.text('Defect Scatter Plot', margin, yPos); yPos+=7;
-                    const scatterWidth = pdfWidth - margin*2;
-                    const scatterImg = scatterCanvas.toDataURL('image/png', 1.0);
-                    const scatterHeight = (scatterCanvas.height * scatterWidth)/scatterCanvas.width;
-                    pdf.addImage(scatterImg,'PNG', margin, yPos, scatterWidth, scatterHeight); yPos+=scatterHeight+10;
-                }
+                // Scatter removed
             } catch(e) { console.error("Error adding charts to PDF:", e); }
         }
 
