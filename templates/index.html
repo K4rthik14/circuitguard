@@ -7,101 +7,120 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <header class="header">
-        <h1>CircuitGuard</h1>
-        <p>AI-powered PCB Defect Detection using EfficientNet-B4</p>
+        <h1>🧠 CircuitGuard</h1>
+        <p>AI-powered PCB Defect Detection (EfficientNet-B4: 98.83% Accuracy)</p>
     </header>
 
+    <main class="main-content">
+        
+        <aside class="sidebar card">
+            <h3>Detection Parameters</h3>
+            <div class="slider-group">
+                <label for="diffThreshold">Difference Threshold (<span id="diffVal">30</span>)</label>
+                <p class="description">0 = Auto (Otsu). Higher values ignore subtle differences.</p>
+                <input type="range" id="diffThreshold" min="0" max="255" value="30" step="1">
+            </div>
+            <div class="slider-group">
+                <label for="minArea">Minimum ROI Area (<span id="areaVal">5</span> px)</label>
+                <p class="description">Ignores defects smaller than this area.</p>
+                <input type="range" id="minArea" min="1" max="500" value="5" step="1">
+            </div>
+            <div class="slider-group">
+                <label for="morphIter">Noise Filter Strength (<span id="morphVal">2</span>)</label>
+                <p class="description">Iterations for morphological opening (removes noise).</p>
+                <input type="range" id="morphIter" min="1" max="5" value="2" step="1">
+            </div>
+        </aside>
 
-    <main class="container">
-       <!-- Sidebar for Defect Parameters -->
-    <aside class="sidebar">
-    <h3>Defect Parameters</h3>
-
-     <label>Difference Threshold:
-        <input type="range" id="diffThreshold" min="0" max="255" value="30" step="1"
-               oninput="this.nextElementSibling.value = this.value">
-        <output>30</output>
-    </label>
-
-    <label>Min Area:
-        <input type="range" id="minArea" min="1" max="500" value="5" step="1"
-               oninput="this.nextElementSibling.value = this.value">
-        <output>5</output>
-    </label>
-
-    <label>Morph Iterations:
-        <input type="range" id="morphIter" min="1" max="5" value="2" step="1"
-               oninput="this.nextElementSibling.value = this.value">
-        <output>2</output>
-    </label>
-    </aside>
-
-
-        <section class="upload-section card">
-            <h2>Upload Images</h2>
-            <form id="upload-form"> <div class="upload-grid">
-                    <div class="upload-box">
-                        <label for="template_image">Template Image</label>
-                        <p class="description">Upload the reference/defect-free PCB image.</p>
-                        <input type="file" id="template_image" name="template_image" accept="image/png, image/jpeg" required>
-                        <img id="template-preview" class="preview" src="#" alt="Template Preview" style="display:none;">
+        <div class="container">
+            <section class="upload-section card">
+                <h2>Upload Images</h2>
+                <form id="upload-form">
+                    <div class="upload-grid">
+                        <div class="upload-box">
+                            <label for="template_image">Template Image</label>
+                            <p class="description">Upload the reference/defect-free PCB image.</p>
+                            <input type="file" id="template_image" name="template_image" accept="image/png, image/jpeg" required>
+                            <img id="template-preview" class="preview" src="#" alt="Template Preview">
+                        </div>
+                        <div class="upload-box">
+                            <label for="test_image">Test Image</label>
+                            <p class="description">Upload the test PCB image to analyze.</p>
+                            <input type="file" id="test_image" name="test_image" accept="image/png, image/jpeg" required>
+                            <img id="test-preview" class="preview" src="#" alt="Test Preview">
+                        </div>
                     </div>
-                    <div class="upload-box">
-                        <label for="test_image">Test Image</label>
-                        <p class="description">Upload the test PCB image to analyze.</p>
-                        <input type="file" id="test_image" name="test_image" accept="image/png, image/jpeg" required>
-                        <img id="test-preview" class="preview" src="#" alt="Test Preview" style="display:none;">
+                    <div class="action-container">
+                        <button type="submit" id="detect-button" class="btn-primary">🚀 Detect Defects</button>
+                        <div id="spinner" class="spinner" style="display:none;">Processing...</div>
                     </div>
-                </div>
-                 <div class="action-container">
-                    <button type="submit" id="detect-button" class="btn-primary"> Detect Defects</button>
-                    <div id="spinner" class="spinner" style="display:none;">Processing...</div>
-                 </div>
-            </form>
-        </section>
+                </form>
+            </section>
 
-        <section id="results-section" class="results-section card" style="display:none;">
-            <h2>Analysis Results</h2>
-             <div id="error-message" class="error-message" style="display:none;"></div> <div id="success-message" class="success-message" style="display: none;"></div>
+            <section id="results-section" class="results-section card" style="display:none;">
+                <h2>Analysis Results</h2>
+                <div id="error-message" class="error-message" style="display:none;"></div>
+                <div id="success-message" class="success-message" style="display: none;"></div>
 
-
-            <div id="output-display" style="display: none;">
-                <h3>Defect Summary</h3>
-                <p><strong>Total Defects Detected:</strong> <span id="defect-count">0</span></p>
-                 <div id="summary-container">
-                    <table id="summary-table">
-                        <thead>
-                            <tr>
-                                <th>Defect Type</th>
-                                <th>Count</th>
-                            </tr>
-                        </thead>
-                        <tbody id="summary-body">
-                            <tr><td colspan="2"><em>Awaiting results...</em></td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="chartContainer">
-                    <canvas id="histogramCanvas"></canvas>
-                    <canvas id="pieCanvas"></canvas>
-                </div>
-
-                <h3>Annotated Image</h3>
-                 <div class="result-image-container">
-                    <img id="result-image" src="#" alt="Annotated Result Image">
-                </div>
-                <div id="download-button-container">
+                <div id="output-display" style="display: none;">
+                    
+                    <h3>Processing Steps</h3>
+                    <div class="intermediate-images">
+                        <figure>
+                            <img id="diff-image" src="#" alt="Difference Image">
+                            <figcaption>Difference Image</figcaption>
+                        </figure>
+                        <figure>
+                            <img id="mask-image" src="#" alt="Binary Mask">
+                            <figcaption>Binary Mask</figcaption>
+                        </figure>
                     </div>
-                 <div id="no-defects-message" style="display: none;">No defects found!</div> </div>
-        </section>
-    </main>
 
+                    <div class="stats-grid">
+                        <div id="chart-container-bar">
+                            <h3>Defect Count per Class</h3>
+                            <canvas id="defectCountChart"></canvas>
+                        </div>
+                        <div id="chart-container-scatter">
+                            <h3>Defect Scatter Plot</h3>
+                            <canvas id="defectScatterPlot"></canvas>
+                        </div>
+                    </div>
+
+                    <h3>Defect Summary</h3>
+                    <p><strong>Total Defects Detected:</strong> <span id="defect-count">0</span></p>
+                    <div id="summary-container">
+                        <table id="summary-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Class</th>
+                                    <th>Confidence</th>
+                                    <th>Position (x, y)</th>
+                                    <th>Size (w, h)</th>
+                                    <th>Area (px)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-body">
+                                <tr><td colspan="6"><em>Awaiting results...</em></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Annotated Image</h3>
+                    <div class="result-image-container">
+                        <img id="result-image" src="#" alt="Annotated Result Image">
+                    </div>
+                    <div id="download-button-container">
+                        </div>
+                    <div id="no-defects-message" class="success-message" style="display: none;">✅ No defects found!</div>
+                </div>
+            </section>
+        </div> </main>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
