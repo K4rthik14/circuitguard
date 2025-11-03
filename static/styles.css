@@ -12,6 +12,10 @@
     --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     --border-radius: 8px;
 }
+html {
+    overflow-x: hidden;
+    width: 100%;
+}
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -20,6 +24,7 @@ body {
     padding: 0;
     background-color: var(--background-color);
     color: var(--text-color);
+    overflow-x: hidden; /* Prevent horizontal scroll caused by canvases/images */
 }
 
 .header {
@@ -37,10 +42,11 @@ body {
 .main-content {
     display: flex;
     flex-wrap: wrap; /* Allow wrapping on small screens */
-    width: 95%;
-    max-width: 1400px; /* Wider max width for dashboard */
+    width: 100%;
+    max-width: 100%; /* Use full viewport width */
     margin: 0 auto 30px auto;
     gap: 25px; /* Space between sidebar and container */
+    overflow-x: hidden; /* Guard against child overflow */
 }
 
 .sidebar {
@@ -73,6 +79,18 @@ body {
     width: 100%;
     cursor: pointer;
 }
+.slider-row {
+    display: grid;
+    grid-template-columns: 1fr 80px;
+    gap: 10px;
+    align-items: center;
+}
+.slider-row input[type="number"] {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
 
 .container {
     flex: 1 1 600px; /* Main content area, takes remaining space */
@@ -80,6 +98,8 @@ body {
     max-width: none; /* Override previous max-width */
     margin: 0; /* Override previous margin */
     padding: 0; /* No padding on container, card has padding */
+    min-width: 0; /* Allow shrinking inside flex to avoid overflow */
+    overflow-x: hidden;
 }
 /* --- END OF FLEXBOX LAYOUT --- */
 
@@ -243,12 +263,15 @@ input[type="file"] {
 /* --- Stats Grid --- */
 .stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr; /* three charts: bar, pie, scatter */
     gap: 25px;
     align-items: start;
     margin-top: 20px;
     margin-bottom: 25px;
+    max-width: 100%;
+    overflow-x: hidden;
 }
+#chart-container-bar, #chart-container-pie, #chart-container-scatter { min-width: 0; }
 #chart-container-bar, #chart-container-scatter {
     width: 100%;
     height: 350px;
@@ -257,6 +280,22 @@ input[type="file"] {
     padding: 15px;
     border-radius: var(--border-radius);
     background-color: #fdfdfd;
+    box-sizing: border-box;
+    overflow: hidden; /* Avoid child canvas expanding container */
+}
+#chart-container-pie {
+    width: 100%;
+    height: 350px;
+    position: relative;
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    background-color: #fdfdfd;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+@media (max-width: 1200px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 900px) { /* Stack charts on smaller screens */
     .stats-grid { grid-template-columns: 1fr; }
@@ -267,8 +306,10 @@ input[type="file"] {
     margin: 20px 0;
     max-height: 400px; /* Add scroll for long tables */
     overflow-y: auto;
+    overflow-x: auto; /* Prevent table from forcing page wider */
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
+    max-width: 100%;
 }
 #summary-table {
     width: 100%;
@@ -312,12 +353,36 @@ input[type="file"] {
     margin: 0 auto;
 }
 
+/* Ensure canvases never exceed their containers */
+canvas {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important; /* follow container height */
+}
+
 #download-button-container {
     text-align: center;
     margin: 20px 0;
     display: flex;
     justify-content: center;
     gap: 15px;
+}
+
+/* Keep result area from jumping by reserving space */
+.results-section {
+    min-height: 900px; /* Reserve space to reduce layout shifts */
+}
+
+/* Generic small helper for center text over empty charts */
+.no-data {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.95em;
 }
 .btn-download {
     display: inline-block;

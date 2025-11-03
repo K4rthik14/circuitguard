@@ -7,32 +7,36 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <header class="header">
         <h1>🧠 CircuitGuard</h1>
-        <p>AI-powered PCB Defect Detection (EfficientNet-B4: 98.83% Accuracy)</p>
+        <p>AI-powered PCB Defect Detection</p>
     </header>
 
     <main class="main-content">
-        
         <aside class="sidebar card">
             <h3>Detection Parameters</h3>
             <div class="slider-group">
                 <label for="diffThreshold">Difference Threshold (<span id="diffVal">30</span>)</label>
-                <p class="description">0 = Auto (Otsu). Higher values ignore subtle differences.</p>
-                <input type="range" id="diffThreshold" min="0" max="255" value="30" step="1">
+                <div class="slider-row">
+                    <input type="range" id="diffThreshold" min="0" max="255" value="30" step="1">
+                    <input type="number" id="diffThresholdNum" min="0" max="255" value="30" step="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
             </div>
             <div class="slider-group">
                 <label for="minArea">Minimum ROI Area (<span id="areaVal">5</span> px)</label>
-                <p class="description">Ignores defects smaller than this area.</p>
-                <input type="range" id="minArea" min="1" max="500" value="5" step="1">
+                <div class="slider-row">
+                    <input type="range" id="minArea" min="1" max="500" value="5" step="1">
+                    <input type="number" id="minAreaNum" min="1" max="500" value="5" step="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
             </div>
             <div class="slider-group">
                 <label for="morphIter">Noise Filter Strength (<span id="morphVal">2</span>)</label>
-                <p class="description">Iterations for morphological opening (removes noise).</p>
-                <input type="range" id="morphIter" min="1" max="5" value="2" step="1">
+                <div class="slider-row">
+                    <input type="range" id="morphIter" min="1" max="5" value="2" step="1">
+                    <input type="number" id="morphIterNum" min="1" max="5" value="2" step="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
             </div>
         </aside>
 
@@ -43,13 +47,11 @@
                     <div class="upload-grid">
                         <div class="upload-box">
                             <label for="template_image">Template Image</label>
-                            <p class="description">Upload the reference/defect-free PCB image.</p>
                             <input type="file" id="template_image" name="template_image" accept="image/png, image/jpeg" required>
                             <img id="template-preview" class="preview" src="#" alt="Template Preview">
                         </div>
                         <div class="upload-box">
                             <label for="test_image">Test Image</label>
-                            <p class="description">Upload the test PCB image to analyze.</p>
                             <input type="file" id="test_image" name="test_image" accept="image/png, image/jpeg" required>
                             <img id="test-preview" class="preview" src="#" alt="Test Preview">
                         </div>
@@ -64,10 +66,9 @@
             <section id="results-section" class="results-section card" style="display:none;">
                 <h2>Analysis Results</h2>
                 <div id="error-message" class="error-message" style="display:none;"></div>
-                <div id="success-message" class="success-message" style="display: none;"></div>
+                <div id="success-message" class="success-message" style="display:none;"></div>
 
-                <div id="output-display" style="display: none;">
-                    
+                <div id="output-display" style="display:none;">
                     <h3>Processing Steps</h3>
                     <div class="intermediate-images">
                         <figure>
@@ -84,6 +85,10 @@
                         <div id="chart-container-bar">
                             <h3>Defect Count per Class</h3>
                             <canvas id="defectCountChart"></canvas>
+                        </div>
+                        <div id="chart-container-pie">
+                            <h3>Defect Class Distribution</h3>
+                            <canvas id="defectPieChart"></canvas>
                         </div>
                         <div id="chart-container-scatter">
                             <h3>Defect Scatter Plot</h3>
@@ -115,12 +120,12 @@
                     <div class="result-image-container">
                         <img id="result-image" src="#" alt="Annotated Result Image">
                     </div>
-                    <div id="download-button-container">
-                        </div>
-                    <div id="no-defects-message" class="success-message" style="display: none;">✅ No defects found!</div>
+                    <div id="download-button-container"></div>
+                    <div id="no-defects-message" class="success-message" style="display:none;">✅ No defects found!</div>
                 </div>
             </section>
-        </div> </main>
+        </div>
+    </main>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
