@@ -24,7 +24,7 @@ body {
     padding: 0;
     background-color: var(--background-color);
     color: var(--text-color);
-    overflow-x: hidden; /* Prevent horizontal scroll caused by canvases/images */
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 .header {
@@ -42,11 +42,10 @@ body {
 .main-content {
     display: flex;
     flex-wrap: wrap; /* Allow wrapping on small screens */
-    width: 100%;
-    max-width: 100%; /* Use full viewport width */
+    width: 95%;
+    max-width: 1400px; /* Wider max width for dashboard */
     margin: 0 auto 30px auto;
     gap: 25px; /* Space between sidebar and container */
-    overflow-x: hidden; /* Guard against child overflow */
 }
 
 .sidebar {
@@ -79,27 +78,34 @@ body {
     width: 100%;
     cursor: pointer;
 }
-.slider-row {
+.slider-row { /* Style for number input next to slider */
     display: grid;
-    grid-template-columns: 1fr 80px;
+    grid-template-columns: 1fr auto; /* Slider takes space, number is fixed */
     gap: 10px;
     align-items: center;
 }
 .slider-row input[type="number"] {
-    width: 80px;
+    width: 60px; /* Smaller width for number input */
     padding: 8px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
+    -moz-appearance: textfield; /* Remove spinner buttons in Firefox */
 }
+.slider-row input[type="number"]::-webkit-outer-spin-button,
+.slider-row input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none; /* Remove spinner buttons in Chrome/Safari */
+    margin: 0;
+}
+
 
 .container {
     flex: 1 1 600px; /* Main content area, takes remaining space */
     width: auto; /* Override previous width */
-    max-width: none; /* Override previous max-width */
-    margin: 0; /* Override previous margin */
-    padding: 0; /* No padding on container, card has padding */
-    min-width: 0; /* Allow shrinking inside flex to avoid overflow */
-    overflow-x: hidden;
+    max-width: 100%; /* Ensure it doesn't overflow */
+    min-width: 0; /* Allow shrinking inside flex */
+    margin: 0; 
+    padding: 0;
+    overflow-x: hidden; /* Prevent its children from causing scroll */
 }
 /* --- END OF FLEXBOX LAYOUT --- */
 
@@ -110,6 +116,8 @@ body {
     border-radius: var(--border-radius);
     margin-bottom: 25px;
     box-shadow: var(--box-shadow);
+    box-sizing: border-box; /* Include padding in width calculation */
+    overflow-x: hidden; /* Prevent card content from overflowing */
 }
 .card h2, .card h3 {
     margin-top: 0;
@@ -170,7 +178,7 @@ input[type="file"] {
 }
 .preview {
     display: none;
-    max-width: 80%;
+    max-width: 90%; /* Use % for responsiveness */
     height: 180px;
     margin: 15px auto 0 auto;
     border: 1px solid var(--border-color);
@@ -263,16 +271,16 @@ input[type="file"] {
 /* --- Stats Grid --- */
 .stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr; /* three charts: bar, pie, scatter */
+    /* Updated to 3 columns */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 25px;
     align-items: start;
     margin-top: 20px;
     margin-bottom: 25px;
     max-width: 100%;
-    overflow-x: hidden;
 }
-#chart-container-bar, #chart-container-pie, #chart-container-scatter { min-width: 0; }
-#chart-container-bar, #chart-container-scatter {
+/* Updated container IDs */
+#chart-container-bar, #chart-container-pie, #chart-container-scatter {
     width: 100%;
     height: 350px;
     position: relative;
@@ -280,33 +288,19 @@ input[type="file"] {
     padding: 15px;
     border-radius: var(--border-radius);
     background-color: #fdfdfd;
-    box-sizing: border-box;
-    overflow: hidden; /* Avoid child canvas expanding container */
+    box-sizing: border-box; /* Ensure padding is included in width */
 }
-#chart-container-pie {
-    width: 100%;
-    height: 350px;
-    position: relative;
-    border: 1px solid var(--border-color);
-    padding: 15px;
-    border-radius: var(--border-radius);
-    background-color: #fdfdfd;
-    box-sizing: border-box;
-    overflow: hidden;
-}
-@media (max-width: 1200px) {
-    .stats-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 900px) { /* Stack charts on smaller screens */
+/* Stack charts on smaller screens */
+@media (max-width: 900px) { 
     .stats-grid { grid-template-columns: 1fr; }
 }
 
 /* --- Summary Table --- */
 #summary-container {
     margin: 20px 0;
-    max-height: 400px; /* Add scroll for long tables */
+    max-height: 400px;
     overflow-y: auto;
-    overflow-x: auto; /* Prevent table from forcing page wider */
+    overflow-x: auto; /* Add horizontal scroll for table if needed */
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     max-width: 100%;
@@ -321,19 +315,20 @@ input[type="file"] {
     padding: 10px 12px;
     text-align: left;
     vertical-align: middle;
+    white-space: nowrap; /* Prevent table text from wrapping */
 }
 #summary-table th {
     background-color: #e9ecef;
     font-weight: 600;
     color: var(--text-color);
-    position: sticky; /* Make header sticky */
+    position: sticky;
     top: 0;
 }
 #summary-table tbody tr:nth-child(odd) {
-    background-color: #f8f9fa; /* Zebra striping */
+    background-color: #f8f9fa;
 }
-/* Center align all table body cells except the first one (ID) and second one (Class) */
-#summary-table tbody td:not(:first-child):not(:nth-child(2)) {
+/* Center align all table body cells except Class */
+#summary-table tbody td:not(:nth-child(2)) {
      text-align: center;
 }
 
@@ -344,6 +339,8 @@ input[type="file"] {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     background-color: #fdfdfd;
+    max-width: 100%;
+    overflow-x: auto; /* Add scroll if image is too wide */
 }
 #result-image {
     max-width: 100%;
@@ -353,36 +350,23 @@ input[type="file"] {
     margin: 0 auto;
 }
 
-/* Ensure canvases never exceed their containers */
+/* --- REMOVED THE CONFLICTING CANVAS STYLE --- */
+/*
 canvas {
     display: block;
-    width: 100% !important;
+    width: 100% !important; 
     max-width: 100% !important;
-    height: 100% !important; /* follow container height */
+    height: 100% !important; 
 }
+*/
 
 #download-button-container {
     text-align: center;
     margin: 20px 0;
     display: flex;
+    flex-wrap: wrap; /* Allow buttons to wrap */
     justify-content: center;
     gap: 15px;
-}
-
-/* Keep result area from jumping by reserving space */
-.results-section {
-    min-height: 900px; /* Reserve space to reduce layout shifts */
-}
-
-/* Generic small helper for center text over empty charts */
-.no-data {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    font-size: 0.95em;
 }
 .btn-download {
     display: inline-block;
@@ -417,35 +401,4 @@ canvas {
     text-align: center;
 }
 
-/* Fix for duplicate CSS rule */
-/* Remove the block below as it's redundant with the one above */
-/*
-#download-button-container {
-    text-align: center;
-    margin-top: 15px;
-    margin-bottom: 20px;
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-}
-.btn-download {
-    display: inline-block;
-    padding: 10px 20px;
-    background-color: var(--primary-color);
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    font-size: 1em;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    font-family: inherit;
-}
-.btn-download:hover { background-color: #0b5ed7; }
-
-.pdf-button {
-    background-color: var(--error-color);
-}
-.pdf-button:hover { background-color: #bb2d3b; }
-.pdf-button:disabled { background-color: #adb5bd; cursor: not-allowed; }
-*/
+/* Removed duplicate CSS rules */

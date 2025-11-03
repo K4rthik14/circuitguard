@@ -28,30 +28,32 @@ const maskImage = document.getElementById('mask-image');
 ['diffThreshold', 'minArea', 'morphIter'].forEach(id => {
     const slider = document.getElementById(id);
     if (!slider) return;
-    const display = slider.parentElement.parentElement.querySelector('label > span');
-    if (display) display.textContent = slider.value;
-    slider.addEventListener('input', () => { if (display) display.textContent = slider.value; });
+    // Find the <span> and the <input type="number">
+    const displaySpan = slider.parentElement.parentElement.querySelector('label > span');
+    const numInput = document.getElementById(id + 'Num');
+
+    if (displaySpan) displaySpan.textContent = slider.value;
+    if (numInput) numInput.value = slider.value;
+    
+    slider.addEventListener('input', () => { 
+        if (displaySpan) displaySpan.textContent = slider.value;
+        if (numInput) numInput.value = slider.value;
+    });
+
+    if (numInput) {
+        numInput.addEventListener('input', () => {
+            const val = parseInt(numInput.value || '0', 10);
+            const min = parseInt(numInput.min, 10);
+            const max = parseInt(numInput.max, 10);
+            const clampedVal = Math.max(min, Math.min(max, val));
+            
+            slider.value = clampedVal;
+            numInput.value = clampedVal;
+            if (displaySpan) displaySpan.textContent = String(clampedVal);
+        });
+    }
 });
 
-// Range <-> Number sync
-[
-    { rangeId: 'diffThreshold', numId: 'diffThresholdNum', spanId: 'diffVal' },
-    { rangeId: 'minArea', numId: 'minAreaNum', spanId: 'areaVal' },
-    { rangeId: 'morphIter', numId: 'morphIterNum', spanId: 'morphVal' }
-].forEach(({ rangeId, numId, spanId }) => {
-    const rangeEl = document.getElementById(rangeId);
-    const numEl = document.getElementById(numId);
-    const spanEl = document.getElementById(spanId);
-    if (!rangeEl || !numEl) return;
-    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-    const sync = val => { rangeEl.value = val; numEl.value = val; if (spanEl) spanEl.textContent = String(val); };
-    sync(rangeEl.value);
-    rangeEl.addEventListener('input', () => sync(rangeEl.value));
-    numEl.addEventListener('input', () => {
-        const val = parseInt(numEl.value || '0', 10);
-        sync(clamp(val, parseInt(numEl.min,10), parseInt(numEl.max,10)));
-    });
-});
 
 function setupPreview(input, preview) {
     if (!input || !preview) return;
@@ -99,7 +101,7 @@ form.addEventListener('submit', async (e) => {
 
     try {
         const res = await fetch('/api/detect', { method: 'POST', body: formData });
-        const data = await res.json();
+        const data = await res.json(); // Wait for the JSON promise to resolve
         if (!res.ok) throw new Error(data?.error || res.statusText);
         if (!data || !data.annotated_image_url || !Array.isArray(data.defects)) throw new Error('Invalid response');
 
@@ -117,21 +119,34 @@ form.addEventListener('submit', async (e) => {
         defectCount.textContent = total;
         summaryBody.innerHTML = '';
 
-        const summaryCounts = {};
-        defects.forEach(d => {
-            const row = summaryBody.insertRow();
-            row.innerHTML = `<td>${d.id}</td><td>${d.label}</td><td>${(d.confidence*100).toFixed(2)}%</td><td>(${d.x}, ${d.y})</td><td>(${d.w}, ${d.h})</td><td>${d.area}</td>`;
-            summaryCounts[d.label] = (summaryCounts[d.label] || 0) + 1;
-        });
+        const summaryCounts = summarizeDefects(defects);
+
         if (total === 0) {
             noDefectsMessage.style.display = 'block';
             summaryBody.innerHTML = '<tr><td colspan="6">✅ No defects found!</td></tr>';
+            // Hide chart containers
+            document.getElementById('chart-container-bar').style.display = 'none';
+            document.getElementById('chart-container-pie').style.display = 'none';
+            document.getElementById('chart-container-scatter').style.display = 'none';
+        } else {
+             // Show chart containers
+            document.getElementById('chart-container-bar').style.display = 'block';
+            document.getElementById('chart-container-pie').style.display = 'block';
+            document.getElementById('chart-container-scatter').style.display = 'block';
+
+            // Populate table
+            defects.forEach(d => {
+                const row = summaryBody.insertRow();
+                row.innerHTML = `<td>${d.id}</td><td>${d.label}</td><td>${(d.confidence*100).toFixed(2)}%</td><td>(${d.x}, ${d.y})</td><td>(${d.w}, ${d.h})</td><td>${d.area}</td>`;
+            });
+
+            // Render charts
+            renderDefectChart(summaryCounts);
+            renderDefectPie(summaryCounts);
+            renderScatterPlot(defects);
         }
 
-        renderDefectChart(summaryCounts);
-        renderDefectPie(summaryCounts);
-        renderScatterPlot(defects);
-
+        // Add Download buttons
         const downloadImgLink = document.createElement('a');
         downloadImgLink.href = data.annotated_image_url;
         const safeFilename = testFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
@@ -165,7 +180,12 @@ function renderDefectChart(summaryData) {
     myBarChart = new Chart(ctx, {
         type: 'bar',
         data: { labels, datasets: [{ label: 'Defect Count', data, backgroundColor: 'rgba(54,162,235,0.6)', borderColor: 'rgba(54,162,235,1)', borderWidth: 1 }] },
-        options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, // <-- THIS IS A KEY FIX
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, 
+            plugins: { legend: { display: false } } 
+        }
     });
 }
 
@@ -176,7 +196,15 @@ function renderDefectPie(summaryData) {
     const colorMap = { 'copper':'rgba(255,159,64,0.7)','mousebite':'rgba(75,192,192,0.7)','open':'rgba(54,162,235,0.7)','pin-hole':'rgba(255,206,86,0.7)','short':'rgba(255,99,132,0.7)','spur':'rgba(153,102,255,0.7)','unknown':'rgba(201,203,207,0.7)' };
     const backgroundColor = labels.map(l => colorMap[l] || colorMap['unknown']);
     if (myPieChart) myPieChart.destroy();
-    myPieChart = new Chart(ctx, { type: 'pie', data: { labels, datasets: [{ data, backgroundColor, borderColor: '#fff', borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1, plugins: { legend: { position: 'bottom' } } } });
+    myPieChart = new Chart(ctx, { 
+        type: 'pie', 
+        data: { labels, datasets: [{ data, backgroundColor, borderColor: '#fff', borderWidth: 1 }] }, 
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, // <-- THIS IS A KEY FIX
+            plugins: { legend: { position: 'bottom' } } 
+        } 
+    });
 }
 
 function renderScatterPlot(defects) {
@@ -187,50 +215,149 @@ function renderScatterPlot(defects) {
     (defects || []).forEach(d => { if (!datasets[d.label]) datasets[d.label] = { label: d.label, data: [], backgroundColor: colors[d.label] || colors['unknown'], pointRadius: 5 }; datasets[d.label].data.push({ x: d.x, y: d.y }); });
     const finalDatasets = Object.values(datasets);
     if (finalDatasets.length === 0) finalDatasets.push({ label: 'No Data', data: [], backgroundColor: 'rgba(201,203,207,0.4)', pointRadius: 0 });
-    myScatterChart = new Chart(ctx, { type: 'scatter', data: { datasets: finalDatasets }, options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.6, scales: { x: { title: { display: true, text: 'X (px)' } }, y: { title: { display: true, text: 'Y (px)' }, reverse: true } }, plugins: { legend: { position: 'bottom' } } } });
+    
+    myScatterChart = new Chart(ctx, { 
+        type: 'scatter', 
+        data: { datasets: finalDatasets }, 
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, // <-- THIS IS A KEY FIX
+            scales: { 
+                x: { title: { display: true, text: 'X (px)' } }, 
+                y: { title: { display: true, text: 'Y (px)' }, reverse: true } 
+            }, 
+            plugins: { legend: { position: 'bottom' } } 
+        } 
+    });
 }
 
-function showError(message) { errorMessage.textContent = message; errorMessage.style.display = 'block'; successMessage.style.display = 'none'; outputDisplay.style.display = 'none'; }
+function showError(message) { 
+    errorMessage.textContent = message; 
+    errorMessage.style.display = 'block'; 
+    successMessage.style.display = 'none'; 
+    outputDisplay.style.display = 'none'; 
+}
 
 function summarizeDefects(defects) { const c = {}; defects.forEach(d => { c[d.label] = (c[d.label] || 0) + 1; }); return c; }
 
 async function generatePDF() {
     if (!lastAnalysisData) { alert('Run an analysis first.'); return; }
-    const { jsPDF } = window.jspdf; const pdf = new jsPDF('p','mm','a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth(); const pdfHeight = pdf.internal.pageSize.getHeight();
-    const margin = 15; let yPos = 20;
-    const templateName = document.getElementById('template_image').files[0]?.name || 'N/A';
-    const testName = document.getElementById('test_image').files[0]?.name || 'N/A';
+    
+    // Check if jsPDF is loaded
+    if (typeof window.jspdf === 'undefined') {
+        console.error("jsPDF library is not loaded!");
+        alert("Error: PDF generation library (jsPDF) is missing.");
+        return;
+    }
+    // Check if html2canvas is loaded
+    if (typeof html2canvas === 'undefined') {
+        console.error("html2canvas library is not loaded!");
+        alert("Error: PDF generation library (html2canvas) is missing.");
+        return;
+    }
 
-    const pdfButton = document.getElementById('download-pdf-button'); pdfButton.disabled = true; pdfButton.textContent = '⏳ Generating PDF...';
-    pdf.setFontSize(20); pdf.text('CircuitGuard - Defect Analysis Report', pdfWidth/2, yPos, { align:'center' }); yPos+=15;
-    pdf.setFontSize(12); pdf.text('Analysis Details', margin, yPos); yPos+=7; pdf.setFontSize(10);
-    pdf.text(`Template Image: ${templateName}`, margin, yPos); yPos+=5; pdf.text(`Test Image: ${testName}`, margin, yPos); yPos+=10;
-    const total = lastAnalysisData.defects.length; pdf.setFontSize(12); pdf.text('Defect Summary', margin, yPos); yPos+=7; pdf.setFontSize(10); pdf.text(`Total Defects Found: ${total}`, margin, yPos); yPos+=7;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4'); // A4 Portrait
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pdfWidth - (margin * 2);
+    let yPos = 20;
+    
+    const templateName = templateInput.files[0]?.name || 'N/A';
+    const testName = testInput.files[0]?.name || 'N/A';
 
-    if (total > 0) { const summaryCounts = summarizeDefects(lastAnalysisData.defects); pdf.setFont('helvetica','bold'); pdf.text('Defect Type', margin, yPos); pdf.text('Count', margin+50, yPos); yPos+=5; pdf.setFont('helvetica','normal'); for (const [l,c] of Object.entries(summaryCounts)) { pdf.text(l, margin, yPos); pdf.text(String(c), margin+50, yPos); yPos+=5; } yPos+=5; }
+    const pdfButton = document.getElementById('download-pdf-button');
+    pdfButton.disabled = true;
+    pdfButton.textContent = '⏳ Generating PDF...';
 
     try {
-        const barCanvas = document.getElementById('defectCountChart');
-        const pieCanvas = document.getElementById('defectPieChart');
-        const scatterCanvas = document.getElementById('defectScatterPlot');
+        pdf.setFontSize(20); pdf.text('CircuitGuard - Defect Analysis Report', pdfWidth/2, yPos, { align:'center' }); yPos+=15;
+        pdf.setFontSize(12); pdf.text('Analysis Details', margin, yPos); yPos+=7; pdf.setFontSize(10);
+        pdf.text(`Template Image: ${templateName}`, margin, yPos); yPos+=5; pdf.text(`Test Image: ${testName}`, margin, yPos); yPos+=10;
+        
+        const total = lastAnalysisData.defects.length;
+        pdf.setFontSize(12); pdf.text('Defect Summary', margin, yPos); yPos+=7; pdf.setFontSize(10);
+        pdf.text(`Total Defects Found: ${total}`, margin, yPos); yPos+=7;
+
+        if (total > 0) {
+            // Add Summary Table
+            try {
+                // Check if jsPDF-AutoTable plugin is available
+                if (typeof pdf.autoTable === 'function') {
+                    const tableBody = lastAnalysisData.defects.map(d => [d.id, d.label, `${(d.confidence*100).toFixed(2)}%`, `(${d.x}, ${d.y})`, `(${d.w}, ${d.h})`, d.area]);
+                    pdf.autoTable({
+                        head: [['#', 'Class', 'Confidence', 'Position (x, y)', 'Size (w, h)', 'Area (px)']],
+                        body: tableBody,
+                        startY: yPos,
+                        styles: { fontSize: 8 },
+                        headStyles: { fillColor: [13, 110, 253] } // Blue header
+                    });
+                    yPos = pdf.lastAutoTable.finalY + 10; // Get Y pos after table
+                } else {
+                    // Fallback to simple text table
+                    const summaryCounts = summarizeDefects(lastAnalysisData.defects); 
+                    pdf.setFont('helvetica','bold'); pdf.text('Defect Type', margin, yPos); pdf.text('Count', margin+50, yPos); yPos+=5; pdf.setFont('helvetica','normal'); 
+                    for (const [l,c] of Object.entries(summaryCounts)) { pdf.text(l, margin, yPos); pdf.text(String(c), margin+50, yPos); yPos+=5; } yPos+=5;
+                }
+            } catch (e) { console.error("Error drawing table:", e); }
+        }
+
+        // Add Charts
+        if (total > 0) {
+            if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
+            pdf.setFontSize(12); pdf.text("Visualizations", margin, yPos); yPos += 7;
+            
+            const barCanvas = document.getElementById('defectCountChart');
+            const pieCanvas = document.getElementById('defectPieChart');
+            const scatterCanvas = document.getElementById('defectScatterPlot');
+            const chartWidth = (pdfWidth - margin*2 - 10) / 2; // Half width minus gap
+            
+            try {
+                if (barCanvas) {
+                    const barImg = barCanvas.toDataURL('image/png', 1.0);
+                    const barHeight = (barCanvas.height * chartWidth) / barCanvas.width;
+                    pdf.addImage(barImg,'PNG', margin, yPos, chartWidth, barHeight);
+                }
+                if (pieCanvas) {
+                    const pieImg = pieCanvas.toDataURL('image/png', 1.0);
+                    const pieHeight = (pieCanvas.height * chartWidth) / pieCanvas.width;
+                    pdf.addImage(pieImg,'PNG', margin + chartWidth + 10, yPos, chartWidth, pieHeight);
+                    yPos += Math.max(pieHeight, barHeight || 0) + 10;
+                }
+                if (scatterCanvas) {
+                    if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
+                    pdf.setFontSize(10); pdf.text('Defect Scatter Plot', margin, yPos); yPos+=7;
+                    const scatterWidth = pdfWidth - margin*2;
+                    const scatterImg = scatterCanvas.toDataURL('image/png', 1.0);
+                    const scatterHeight = (scatterCanvas.height * scatterWidth)/scatterCanvas.width;
+                    pdf.addImage(scatterImg,'PNG', margin, yPos, scatterWidth, scatterHeight); yPos+=scatterHeight+10;
+                }
+            } catch(e) { console.error("Error adding charts to PDF:", e); }
+        }
+
+        // Add Annotated Image
         if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
-        if (barCanvas && pieCanvas) {
-            const chartWidth = (pdfWidth - margin*2)/2 - 5;
-            const barImg = barCanvas.toDataURL('image/png'); const barHeight = (barCanvas.height * chartWidth) / barCanvas.width; pdf.addImage(barImg,'PNG', margin, yPos, chartWidth, barHeight);
-            const pieImg = pieCanvas.toDataURL('image/png'); const pieHeight = (pieCanvas.height * chartWidth) / pieCanvas.width; pdf.addImage(pieImg,'PNG', margin + chartWidth + 10, yPos, chartWidth, pieHeight);
-            yPos += Math.max(barHeight, pieHeight) + 10;
-        }
-        if (scatterCanvas) {
-            pdf.text('Defect Scatter Plot', margin, yPos); yPos+=7;
-            const scatterWidth = pdfWidth - margin*2; const scatterImg = scatterCanvas.toDataURL('image/png'); const scatterHeight = (scatterCanvas.height * scatterWidth)/scatterCanvas.width; pdf.addImage(scatterImg,'PNG', margin, yPos, scatterWidth, scatterHeight); yPos+=scatterHeight+10;
-        }
-    } catch(e) { console.error(e); }
+        pdf.setFontSize(12); pdf.text('Annotated Image', margin, yPos); yPos+=7;
+        try { 
+            const imgData = lastAnalysisData.annotated_image_url; 
+            const props = pdf.getImageProperties(imgData); 
+            const imgWidth = pdfWidth - margin*2; 
+            const imgHeight = (props.height * imgWidth)/props.width; 
+            if (yPos + imgHeight > pdfHeight) { pdf.addPage(); yPos=20; pdf.text('Annotated Image (Continued)', margin, yPos); yPos+=7; } 
+            pdf.addImage(imgData,'PNG', margin, yPos, imgWidth, imgHeight);
+        } catch(e) { console.error("Error adding annotated image to PDF:", e); }
 
-    if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
-    pdf.setFontSize(12); pdf.text('Annotated Image', margin, yPos); yPos+=7;
-    try { const imgData = lastAnalysisData.annotated_image_url; const props = pdf.getImageProperties(imgData); const imgWidth = pdfWidth - margin*2; const imgHeight = (props.height * imgWidth)/props.width; if (yPos + imgHeight > pdfHeight) { pdf.addPage(); yPos=20; pdf.text('Annotated Image (Continued)', margin, yPos); yPos+=7; } pdf.addImage(imgData,'PNG', margin, yPos, imgWidth, imgHeight);} catch(e) { console.error(e); }
-
-    const safeName = (testName || 'report').replace(/[^a-zA-Z0-9.\-_]/g,'_'); pdf.save(`CircuitGuard_Report_${safeName}.pdf`);
-    pdfButton.disabled = false; pdfButton.textContent = '⬇️ Download PDF Report';
+        // --- PDF SAVING ---
+        const safeName = (testName || 'report').replace(/[^a-zA-Z0-9.\-_]/g,'_'); 
+        pdf.save(`CircuitGuard_Report_${safeName}.pdf`);
+    
+    } catch(e) {
+        console.error("Error generating PDF:", e);
+        alert("An error occurred while generating the PDF. Check console for details.");
+    } finally {
+        pdfButton.disabled = false; 
+        pdfButton.textContent = '⬇️ Download PDF Report';
+    }
 }
+// <-- NO EXTRA BRACE HERE
