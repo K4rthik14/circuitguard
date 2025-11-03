@@ -104,7 +104,7 @@ form.addEventListener('submit', async (e) => {
         if (!data || !data.annotated_image_url || !Array.isArray(data.defects)) throw new Error('Invalid response');
 
         lastAnalysisData = data;
-        successMessage.textContent = '✅ Analysis Complete!';
+        successMessage.textContent = ' Analysis Complete!';
         successMessage.style.display = 'block';
         outputDisplay.style.display = 'block';
 
@@ -121,7 +121,7 @@ form.addEventListener('submit', async (e) => {
 
         if (total === 0) {
             noDefectsMessage.style.display = 'block';
-            summaryBody.innerHTML = '<tr><td colspan="6">✅ No defects found!</td></tr>';
+            summaryBody.innerHTML = '<tr><td colspan="6"> No defects found!</td></tr>';
             // Hide chart containers
             document.getElementById('chart-container-bar').style.display = 'none';
             document.getElementById('chart-container-pie').style.display = 'none';
@@ -163,7 +163,7 @@ form.addEventListener('submit', async (e) => {
     } finally {
         spinner.style.display = 'none';
         detectButton.disabled = false;
-        detectButton.textContent = '🚀 Detect Defects';
+        detectButton.textContent = 'Detect Defects';
     }
 });
 
