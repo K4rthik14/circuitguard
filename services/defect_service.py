@@ -91,7 +91,7 @@ def find_defects(template_img_pil: Image.Image, test_img_pil: Image.Image, min_a
     diff = cv2.absdiff(template_cv, test_cv)
     _, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     kernel = np.ones((3,3), np.uint8)
-    mask_clean = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1) # Erosion -> Dilation
+    mask_clean = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=2) # Erosion -> Dilation
     mask_clean = cv2.morphologyEx(mask_clean, cv2.MORPH_CLOSE, kernel, iterations=1) # Dilation -> Erosion
 
     # Contour Extraction

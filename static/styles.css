@@ -325,3 +325,6 @@ input[type="file"] {
     margin-top: 25px;
 }
 
+.btn-download + .btn-download {
+    margin-left: 10px;
+}

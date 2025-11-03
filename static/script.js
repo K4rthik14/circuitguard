@@ -23,7 +23,7 @@ const chartContainer = document.getElementById('chart-container');
 const chartCanvas = document.getElementById('defect-chart');
 // This variable will hold our chart instance so we can destroy it later
 window.myDefectChart = null; 
-// ▲▲▲ END OF ADDED SECTION ▲▲▲
+
 
 
 // --- Image Preview Logic ---
@@ -86,59 +86,38 @@ function createDefectChart(summaryCounts) {
     const labels = Object.keys(summaryCounts);
     const data = Object.values(summaryCounts);
 
-    // If a chart already exists, destroy it
-    if (window.myDefectChart) {
-        window.myDefectChart.destroy();
-    }
+    // Destroy old chart if exists
+    if (window.myDefectChart) window.myDefectChart.destroy();
 
-    // Create the new chart
     window.myDefectChart = new Chart(ctx, {
-        type: 'bar',
+        type: 'pie',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Defect Count',
                 data: data,
                 backgroundColor: [
-                    'rgba(255, 99, 132, 0.2)',
-                    'rgba(54, 162, 235, 0.2)',
-                    'rgba(255, 206, 86, 0.2)',
-                    'rgba(75, 192, 192, 0.2)',
-                    'rgba(153, 102, 255, 0.2)',
-                    'rgba(255, 159, 64, 0.2)'
+                    '#FF6384', '#36A2EB', '#FFCE56',
+                    '#4BC0C0', '#9966FF', '#FF9F40'
                 ],
-                borderColor: [
-                    'rgba(255, 99, 132, 1)',
-                    'rgba(54, 162, 235, 1)',
-                    'rgba(255, 206, 86, 1)',
-                    'rgba(75, 192, 192, 1)',
-                    'rgba(153, 102, 255, 1)',
-                    'rgba(255, 159, 64, 1)'
-                ],
-                borderWidth: 1
+                borderColor: '#ffffff',
+                borderWidth: 2
             }]
         },
         options: {
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        // Ensure only whole numbers are used for ticks
-                        stepSize: 1
-                    }
-                }
-            },
             responsive: true,
             plugins: {
-                legend: {
-                    display: false // Hide legend since it's a simple chart
+                legend: { position: 'bottom' },
+                title: {
+                    display: true,
+                    text: 'Defect Distribution'
                 }
             }
         }
     });
 
-    chartContainer.style.display = 'block'; // Show the chart
+    chartContainer.style.display = 'block';
 }
+
 
 // ▲▲▲ END OF ADDED FUNCTIONS ▲▲▲
 
@@ -231,7 +210,7 @@ form.addEventListener("submit", async (event) => {
         const imageUrl = data.annotated_image_url; // Base64 Data URL
 
         // --- Update UI with Actual Data ---
-        successMessage.textContent = '✅ Analysis Complete!';
+        successMessage.textContent = ' Analysis Complete!';
         successMessage.style.display = 'block';
         outputDisplay.style.display = "block"; // Show the output area
 
@@ -281,11 +260,54 @@ form.addEventListener("submit", async (event) => {
             downloadLink.textContent = '⬇️ Download Annotated Image';
             downloadLink.className = 'btn-download'; // Use class for styling
             downloadButtonContainer.appendChild(downloadLink);
+            // Create "Export as PDF" button
+const exportBtn = document.createElement('button');
+exportBtn.textContent = '📄 Export Analysis as PDF';
+exportBtn.className = 'btn-download';
+exportBtn.onclick = async () => {
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'pt', 'a4');
+
+        // Capture the chart as an image
+        const chartImage = chartCanvas.toDataURL('image/png', 1.0);
+
+        // Capture the summary table using html2canvas
+        const summaryCanvas = await html2canvas(document.getElementById('summary-container'));
+        const summaryImage = summaryCanvas.toDataURL('image/png', 1.0);
+
+        // Capture annotated image
+        const annotatedImg = resultImage.src;
+
+        // --- Add to PDF ---
+        pdf.setFontSize(20);
+        pdf.text('CircuitGuard - Defect Analysis Report', 40, 40);
+
+        pdf.setFontSize(12);
+        pdf.text(`Total Defects: ${totalDefects}`, 40, 70);
+
+        pdf.addImage(summaryImage, 'PNG', 40, 90, 500, 0);
+        pdf.addPage();
+        pdf.text('Defect Distribution', 40, 40);
+        pdf.addImage(chartImage, 'PNG', 80, 70, 400, 0);
+        pdf.addPage();
+        pdf.text('Annotated PCB Image', 40, 40);
+        pdf.addImage(annotatedImg, 'PNG', 40, 70, 500, 0);
+
+        pdf.save(`Defect_Report_${safeFilename}.pdf`);
+    } catch (err) {
+        alert('Failed to export PDF: ' + err.message);
+        console.error(err);
+    }
+};
+
+// Append the export button below the image download link
+downloadButtonContainer.appendChild(exportBtn);
+
         }
 
     } catch (err) {
         // --- Handle Errors ---
-        // ... (your existing catch block - no changes needed)
         spinner.style.display = "none";
         errorMessage.textContent = "Error: " + err.message;
         errorMessage.style.display = 'block'; // Make error visible
@@ -294,6 +316,6 @@ form.addEventListener("submit", async (event) => {
         console.error("Detection Error:", err);
     } finally {
          detectButton.disabled = false; // Re-enable button
-         detectButton.textContent = '🚀 Detect Defects'; // Restore original text
+         detectButton.textContent = 'Detect Defects'; // Restore original text
     }
 });
