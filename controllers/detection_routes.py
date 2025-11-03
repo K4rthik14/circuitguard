@@ -49,7 +49,6 @@ def detect_defects_api():
 
         # --- Call the Service Layer ---
         logging.info("Calling defect service...")
-        # Service returns a dictionary with all data
         results = process_and_classify_defects(
             template_img_pil,
             test_img_pil,

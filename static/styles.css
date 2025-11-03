@@ -33,7 +33,7 @@ body {
 .header h1 { margin: 0 0 5px 0; font-size: 1.8em; font-weight: 600; }
 .header p { margin: 0; font-size: 1em; opacity: 0.9; }
 
-/* --- NEW: Flexbox layout for sidebar and main content --- */
+/* --- Flexbox layout for sidebar and main content --- */
 .main-content {
     display: flex;
     flex-wrap: wrap; /* Allow wrapping on small screens */
@@ -81,7 +81,7 @@ body {
     margin: 0; /* Override previous margin */
     padding: 0; /* No padding on container, card has padding */
 }
-/* --- END OF NEW FLEXBOX LAYOUT --- */
+/* --- END OF FLEXBOX LAYOUT --- */
 
 
 .card {
@@ -291,7 +291,10 @@ input[type="file"] {
 #summary-table tbody tr:nth-child(odd) {
     background-color: #f8f9fa; /* Zebra striping */
 }
-#summary-table td:last-child { text-align: center; }
+/* Center align all table body cells except the first one (ID) and second one (Class) */
+#summary-table tbody td:not(:first-child):not(:nth-child(2)) {
+     text-align: center;
+}
 
 .result-image-container {
     text-align: center;
@@ -305,16 +308,16 @@ input[type="file"] {
     max-width: 100%;
     height: auto;
     border: none;
-    display: block; /* Was none initially, now handled by parent */
+    display: block; 
     margin: 0 auto;
 }
 
 #download-button-container {
     text-align: center;
     margin: 20px 0;
-    display: flex; /* Use flexbox for button spacing */
+    display: flex;
     justify-content: center;
-    gap: 15px; /* Space between buttons */
+    gap: 15px;
 }
 .btn-download {
     display: inline-block;
@@ -327,7 +330,7 @@ input[type="file"] {
     border: none;
     cursor: pointer;
     transition: background-color 0.2s ease;
-    font-family: inherit; /* Ensure font consistency */
+    font-family: inherit;
 }
 .btn-download:hover { background-color: #0b5ed7; }
 
@@ -348,3 +351,36 @@ input[type="file"] {
     font-weight: 500;
     text-align: center;
 }
+
+/* Fix for duplicate CSS rule */
+/* Remove the block below as it's redundant with the one above */
+/*
+#download-button-container {
+    text-align: center;
+    margin-top: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+.btn-download {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: var(--primary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 1em;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-family: inherit;
+}
+.btn-download:hover { background-color: #0b5ed7; }
+
+.pdf-button {
+    background-color: var(--error-color);
+}
+.pdf-button:hover { background-color: #bb2d3b; }
+.pdf-button:disabled { background-color: #adb5bd; cursor: not-allowed; }
+*/

@@ -53,22 +53,21 @@ roi_transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
 ])
 
-# --- Classification (UPDATED) ---
+# --- Classification (Returns label and confidence) ---
 def classify_roi(roi_pil: Image.Image, model) -> Tuple[str, float]:
     """Runs inference on a single ROI and returns (label, confidence)."""
     roi_rgb = roi_pil.convert("RGB")
     transformed = roi_transform(roi_rgb).unsqueeze(0).to(DEVICE)
     with torch.no_grad():
         out = model(transformed)
-        # Apply Softmax to get probabilities
         probabilities = torch.softmax(out, dim=1)
-        confidence = probabilities.max().item() # Get the highest probability
+        confidence = probabilities.max().item()
         pred_index = int(probabilities.argmax(1).item())
     
     label = CLASSES[pred_index] if 0 <= pred_index < len(CLASSES) else "unknown"
-    return label, float(confidence) # Return both label and confidence
+    return label, float(confidence)
 
-# --- Image Processing (UPDATED) ---
+# --- Image Processing (Accepts parameters) ---
 def find_defects(
     template_img_pil: Image.Image,
     test_img_pil: Image.Image,
@@ -85,14 +84,11 @@ def find_defects(
     h, w = template_cv.shape
     test_cv = cv2.resize(test_cv, (w, h))
 
-    # --- Image Subtraction ---
     diff = cv2.absdiff(template_cv, test_cv)
 
-    # --- Thresholding ---
     if diff_threshold > 0:
         _, mask = cv2.threshold(diff, diff_threshold, 255, cv2.THRESH_BINARY)
     else:
-        # Use Otsu's method if no threshold is set
         _, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     kernel = np.ones((3,3), np.uint8)
@@ -115,7 +111,6 @@ def find_defects(
                     boxes.append((x, y, w_box, h_box))
                     areas.append(area)
     
-    # Convert grayscale intermediate images to 3-channel BGR for display
     diff_bgr = cv2.cvtColor(diff, cv2.COLOR_GRAY2BGR)
     mask_clean_bgr = cv2.cvtColor(mask_clean, cv2.COLOR_GRAY2BGR)
     output_image_cv_bgr = cv2.cvtColor(np.array(test_img_rgb_pil), cv2.COLOR_RGB2BGR)
@@ -124,7 +119,6 @@ def find_defects(
 
 # --- Drawing ---
 def draw_annotations(image_cv_bgr: np.ndarray, boxes: List[Tuple[int,int,int,int]], labels: List[str]) -> np.ndarray:
-    """Draws bounding boxes and labels on the image (expects BGR)."""
     out = image_cv_bgr.copy()
     img_height, img_width = out.shape[:2]
     padding = 5 
@@ -146,14 +140,14 @@ def draw_annotations(image_cv_bgr: np.ndarray, boxes: List[Tuple[int,int,int,int
         
     return out
 
-# --- Main Service Function (UPDATED) ---
+# --- Main Service Function (Returns all data) ---
 def process_and_classify_defects(
     template_pil: Image.Image,
     test_pil: Image.Image,
     diff_threshold: int = 0,
     morph_iterations: int = 2,
     min_area: int = MIN_CONTOUR_AREA_DEFAULT
-) -> Dict: # Return a single dictionary
+) -> Dict:
     """Main service: finds, classifies, annotates, and returns all results."""
     model = load_classification_model(MODEL_PATH, len(CLASSES))
 
@@ -165,25 +159,21 @@ def process_and_classify_defects(
     )
 
     defect_details = []
+    annotated_cv_bgr = cv2.cvtColor(np.array(test_pil.convert('RGB')), cv2.COLOR_RGB2BGR) # Start with original image
+
     if not rois:
         print("No ROIs found meeting minimum area criteria.")
-        # Return original test image if no defects
-        annotated_cv_bgr = cv2.cvtColor(np.array(test_pil.convert('RGB')), cv2.COLOR_RGB2BGR)
     else:
         print(f"Classifying {len(rois)} ROIs...")
-        # Get labels and confidences
         labels_and_confidences = [classify_roi(roi, model) for roi in rois]
-        
-        # Get just the labels for drawing
         labels = [item[0] for item in labels_and_confidences]
         annotated_cv_bgr = draw_annotations(output_image_cv_bgr, boxes, labels)
 
-        # Prepare defect details list with all info
         for idx, ((label, confidence), (x, y, w, h), area) in enumerate(zip(labels_and_confidences, boxes, areas)):
             defect_details.append({
                 "id": idx + 1,
                 "label": label,
-                "confidence": round(float(confidence), 4), # Add confidence
+                "confidence": round(float(confidence), 4),
                 "x": int(x),
                 "y": int(y),
                 "w": int(w),
@@ -192,11 +182,9 @@ def process_and_classify_defects(
             })
         print(f"Prepared details for {len(defect_details)} defects.")
         
-    # --- Prepare return dictionary ---
     return {
         "annotated_image_bgr": annotated_cv_bgr,
         "diff_image_bgr": diff_img_bgr,
         "mask_image_bgr": mask_img_bgr,
         "defects": defect_details
     }
-# Note: The extra '}' at the end of your original file has been removed.

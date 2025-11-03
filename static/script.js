@@ -32,7 +32,8 @@ const maskImage = document.getElementById('mask-image');
 ['diffThreshold', 'minArea', 'morphIter'].forEach(id => {
     const slider = document.getElementById(id);
     if (slider) {
-        const display = slider.previousElementSibling.querySelector('span'); // Get the span inside the label
+        // Find the <span> inside the <label> that's the slider's *previous sibling*
+        const display = slider.parentElement.querySelector('label > span');
         if(display) {
             // Set initial value
             display.textContent = slider.value;
@@ -40,9 +41,12 @@ const maskImage = document.getElementById('mask-image');
             slider.addEventListener('input', () => {
                 display.textContent = slider.value;
             });
+        } else {
+            console.warn(`Could not find display span for slider ${id}`);
         }
     }
 });
+
 
 // --- Image Preview Logic ---
 function setupPreview(inputId, previewId) {
@@ -149,7 +153,14 @@ form.addEventListener("submit", async (event) => {
         if (totalDefects === 0) {
             noDefectsMessage.style.display = 'block';
             summaryBody.innerHTML = `<tr><td colspan="6">✅ No defects found!</td></tr>`;
+            // Hide chart canvases if no defects
+            document.getElementById('chart-container-bar').style.display = 'none';
+            document.getElementById('chart-container-scatter').style.display = 'none';
         } else {
+            // Show chart canvases
+            document.getElementById('chart-container-bar').style.display = 'block';
+            document.getElementById('chart-container-scatter').style.display = 'block';
+
             const summaryCounts = {};
             defects.forEach(defect => {
                 // Populate summary table
@@ -305,9 +316,23 @@ function showError(message) {
 }
 
 /**
+ * Helper function to summarize defects (used by PDF and charts).
+ * @param {Array} defects - The full list of defect objects.
+ * @returns {Object} - e.g., {short: 2, open: 1}
+ */
+function summarizeDefects(defects) {
+    const summaryCounts = {};
+    defects.forEach(defect => {
+        summaryCounts[defect.label] = (summaryCounts[defect.label] || 0) + 1;
+    });
+    return summaryCounts;
+}
+
+
+/**
  * Generates and downloads a PDF report.
  */
-function generatePDF() {
+async function generatePDF() {
     if (!lastAnalysisData) {
         alert("Please run an analysis first.");
         return;
@@ -318,6 +343,7 @@ function generatePDF() {
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
     const margin = 15;
+    const contentWidth = pdfWidth - (margin * 2);
     let yPos = 20; // Start Y position
 
     // Get file names
@@ -358,8 +384,8 @@ function generatePDF() {
     // 4. Add Summary Table
     if (totalDefects > 0) {
         try {
-            // Use autoTable for better table formatting (requires jsPDF-AutoTable plugin)
-            // As we don't have it, we'll do a simple text table
+            // Use autoTable for better table formatting (if it was imported)
+            // Since we don't have it, we'll do a simple text table
             const summaryCounts = summarizeDefects(lastAnalysisData.defects);
             pdf.setFont("helvetica", "bold");
             pdf.text("Defect Type", margin, yPos);
@@ -380,8 +406,10 @@ function generatePDF() {
         const barCanvas = document.getElementById('defectCountChart');
         const scatterCanvas = document.getElementById('defectScatterPlot');
         
-        pdf.addPage(); // New page for charts and image
-        yPos = 20;
+        if (yPos + 80 > pdfHeight) { // Check if space for at least one chart
+            pdf.addPage();
+            yPos = 20;
+        }
 
         if (totalDefects > 0 && barCanvas) {
             pdf.setFontSize(12);
@@ -390,6 +418,7 @@ function generatePDF() {
             const barImgData = barCanvas.toDataURL('image/png');
             const chartWidth = (pdfWidth - margin * 2) / 2 - 5; // Half width minus small gap
             const barHeight = (barCanvas.height * chartWidth) / barCanvas.width;
+            
             pdf.addImage(barImgData, 'PNG', margin, yPos, chartWidth, barHeight);
             
             if (scatterCanvas) {
@@ -436,3 +465,4 @@ function generatePDF() {
     pdfButton.disabled = false;
     pdfButton.textContent = '⬇️ Download PDF Report';
 }
+// <-- The extra '}' at the end of your original file is removed HERE
