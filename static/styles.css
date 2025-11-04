@@ -387,6 +387,12 @@ canvas {
 }
 .pdf-button:hover { background-color: #bb2d3b; } /* Darker red */
 .pdf-button:disabled { background-color: #adb5bd; cursor: not-allowed; }
+.csv-button {
+    background-color: var(--success-color); /* Green */
+}
+.csv-button:hover { background-color: #157347; } /* Darker green */
+.csv-button:disabled { background-color: #adb5bd; cursor: not-allowed; }
+
 
 #no-defects-message {
     padding: 15px;

@@ -157,6 +157,14 @@ form.addEventListener('submit', async (e) => {
         pdfButton.onclick = generatePDF;
         downloadButtonContainer.appendChild(pdfButton);
 
+        const csvButton = document.createElement('button');
+        csvButton.id = 'download-csv-button';
+        csvButton.className = 'btn-download csv-button';
+        csvButton.textContent = '⬇️ Download CSV Log';
+        csvButton.onclick = downloadCSV;
+        downloadButtonContainer.appendChild(csvButton);
+        
+
     } catch (err) {
         showError(err.message || String(err));
         console.error(err);
@@ -347,4 +355,42 @@ async function generatePDF() {
         pdfButton.textContent = '⬇️ Download PDF Report';
     }
 }
-// <-- NO EXTRA BRACE HERE
+
+
+//Fuction to generate the CSV FILE
+function downloadCSV() {
+    if (!lastAnalysisData || !lastAnalysisData.defects) {
+        alert('Run an analysis first or no defects found.');
+        return;
+    }
+
+    const defects = lastAnalysisData.defects;
+    const testName = document.getElementById('test_image').files[0]?.name || 'report';
+    const safeName = (testName || 'report').replace(/[^a-zA-Z0-9.\-_]/g,'_');
+    const filename = `CircuitGuard_Log_${safeName}.csv`;
+
+    // 1. Create the CSV header
+    const headers = ['id', 'label', 'confidence', 'x', 'y', 'w', 'h', 'area'];
+    let csvContent = headers.join(',') + '\n';
+
+    // 2. Create a row for each defect
+    defects.forEach(d => {
+        const confidencePercent = (d.confidence * 100).toFixed(2);
+        const row = [d.id, d.label, confidencePercent, d.x, d.y, d.w, d.h, d.area];
+        csvContent += row.join(',') + '\n';
+    });
+
+    // 3. Create a Blob and download it
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) { // Check for browser support
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+}
