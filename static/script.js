@@ -284,27 +284,7 @@ async function generatePDF() {
         pdf.setFontSize(12); pdf.text('Defect Summary', margin, yPos); yPos+=7; pdf.setFontSize(10);
         pdf.text(`Total Defects Found: ${total}`, margin, yPos); yPos+=7;
 
-        // --- 2. Summary Table ---
-        if (total > 0) {
-            try {
-                if (typeof pdf.autoTable === 'function') {
-                    const tableBody = lastAnalysisData.defects.map(d => [d.id, d.label, `${(d.confidence*100).toFixed(2)}%`, `(${d.x}, ${d.y})`, `(${d.w}, ${d.h})`, d.area]);
-                    pdf.autoTable({
-                        head: [['#', 'Class', 'Confidence', 'Position (x, y)', 'Size (w, h)', 'Area (px)']],
-                        body: tableBody,
-                        startY: yPos,
-                        styles: { fontSize: 8 },
-                        headStyles: { fillColor: [13, 110, 253] }
-                    });
-                    yPos = pdf.lastAutoTable.finalY + 10;
-                } else {
-                    const summaryCounts = summarizeDefects(lastAnalysisData.defects); 
-                    pdf.setFont('helvetica','bold'); pdf.text('Defect Type', margin, yPos); pdf.text('Count', margin+50, yPos); yPos+=5; pdf.setFont('helvetica','normal'); 
-                    for (const [l,c] of Object.entries(summaryCounts)) { pdf.text(l, margin, yPos); pdf.text(String(c), margin+50, yPos); yPos+=5; } yPos+=5;
-                }
-            } catch (e) { console.error("Error drawing table:", e); }
-        }
-
+      
         // --- 3. Input Images (Template and Test) ---
         if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
         
@@ -344,7 +324,27 @@ async function generatePDF() {
             console.error("Error adding input images to PDF:", e);
             alert("Error adding input images to PDF: " + e.message);
             yPos += 5;
+        }  // --- 2. Summary Table ---
+        if (total > 0) {
+            try {
+                if (typeof pdf.autoTable === 'function') {
+                    const tableBody = lastAnalysisData.defects.map(d => [d.id, d.label, `${(d.confidence*100).toFixed(2)}%`, `(${d.x}, ${d.y})`, `(${d.w}, ${d.h})`, d.area]);
+                    pdf.autoTable({
+                        head: [['#', 'Class', 'Confidence', 'Position (x, y)', 'Size (w, h)', 'Area (px)']],
+                        body: tableBody,
+                        startY: yPos,
+                        styles: { fontSize: 8 },
+                        headStyles: { fillColor: [13, 110, 253] }
+                    });
+                    yPos = pdf.lastAutoTable.finalY + 10;
+                } else {
+                    const summaryCounts = summarizeDefects(lastAnalysisData.defects); 
+                    pdf.setFont('helvetica','bold'); pdf.text('Defect Type', margin, yPos); pdf.text('Count', margin+50, yPos); yPos+=5; pdf.setFont('helvetica','normal'); 
+                    for (const [l,c] of Object.entries(summaryCounts)) { pdf.text(l, margin, yPos); pdf.text(String(c), margin+50, yPos); yPos+=5; } yPos+=5;
+                }
+            } catch (e) { console.error("Error drawing table:", e); }
         }
+
 
         // --- 4. Visualizations (Charts) ---
         if (total > 0) {
