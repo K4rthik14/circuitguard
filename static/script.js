@@ -275,6 +275,7 @@ async function generatePDF() {
     pdfButton.textContent = '⏳ Generating PDF...';
 
     try {
+        // --- 1. Title and Details ---
         pdf.setFontSize(20); pdf.text('CircuitGuard - Defect Analysis Report', pdfWidth/2, yPos, { align:'center' }); yPos+=15;
         pdf.setFontSize(12); pdf.text('Analysis Details', margin, yPos); yPos+=7; pdf.setFontSize(10);
         pdf.text(`Template Image: ${templateName}`, margin, yPos); yPos+=5; pdf.text(`Test Image: ${testName}`, margin, yPos); yPos+=10;
@@ -283,10 +284,9 @@ async function generatePDF() {
         pdf.setFontSize(12); pdf.text('Defect Summary', margin, yPos); yPos+=7; pdf.setFontSize(10);
         pdf.text(`Total Defects Found: ${total}`, margin, yPos); yPos+=7;
 
+        // --- 2. Summary Table ---
         if (total > 0) {
-            // Add Summary Table
             try {
-                // Check if jsPDF-AutoTable plugin is available
                 if (typeof pdf.autoTable === 'function') {
                     const tableBody = lastAnalysisData.defects.map(d => [d.id, d.label, `${(d.confidence*100).toFixed(2)}%`, `(${d.x}, ${d.y})`, `(${d.w}, ${d.h})`, d.area]);
                     pdf.autoTable({
@@ -294,11 +294,10 @@ async function generatePDF() {
                         body: tableBody,
                         startY: yPos,
                         styles: { fontSize: 8 },
-                        headStyles: { fillColor: [13, 110, 253] } // Blue header
+                        headStyles: { fillColor: [13, 110, 253] }
                     });
-                    yPos = pdf.lastAutoTable.finalY + 10; // Get Y pos after table
+                    yPos = pdf.lastAutoTable.finalY + 10;
                 } else {
-                    // Fallback to simple text table
                     const summaryCounts = summarizeDefects(lastAnalysisData.defects); 
                     pdf.setFont('helvetica','bold'); pdf.text('Defect Type', margin, yPos); pdf.text('Count', margin+50, yPos); yPos+=5; pdf.setFont('helvetica','normal'); 
                     for (const [l,c] of Object.entries(summaryCounts)) { pdf.text(l, margin, yPos); pdf.text(String(c), margin+50, yPos); yPos+=5; } yPos+=5;
@@ -306,44 +305,90 @@ async function generatePDF() {
             } catch (e) { console.error("Error drawing table:", e); }
         }
 
-        // Add Charts
+        // --- 3. Input Images (Template and Test) ---
+        if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
+        
+        pdf.setFontSize(12);
+        pdf.text('Input Images', margin, yPos);
+        yPos += 7;
+
+        try {
+            const templateImgData = templatePreview.src;
+            const testImgData = testPreview.src;
+            
+            if (!templateImgData || !templateImgData.startsWith('data:image/')) { throw new Error('Template preview image is not loaded.'); }
+            if (!testImgData || !testImgData.startsWith('data:image/')) { throw new Error('Test preview image is not loaded.'); }
+
+            const imgWidth = (contentWidth - 10) / 2; // Half content width, with a 10mm gap
+
+            const templateProps = pdf.getImageProperties(templateImgData);
+            const templateHeight = (templateProps.height * imgWidth) / templateProps.width;
+            
+            const testProps = pdf.getImageProperties(testImgData);
+            const testHeight = (testProps.height * imgWidth) / testProps.width;
+            
+            const maxHeight = Math.max(templateHeight, testHeight);
+
+            if (yPos + maxHeight + 10 > pdfHeight) { pdf.addPage(); yPos = 20; }
+
+            pdf.setFontSize(10);
+            pdf.text('Template Image', margin, yPos);
+            pdf.addImage(templateImgData, 'PNG', margin, yPos + 3, imgWidth, templateHeight);
+
+            pdf.text('Test Image', margin + imgWidth + 10, yPos);
+            pdf.addImage(testImgData, 'PNG', margin + imgWidth + 10, yPos + 3, imgWidth, testHeight);
+            
+            yPos += maxHeight + 10;
+            
+        } catch (e) {
+            console.error("Error adding input images to PDF:", e);
+            alert("Error adding input images to PDF: " + e.message);
+            yPos += 5;
+        }
+
+        // --- 4. Visualizations (Charts) ---
         if (total > 0) {
             if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
             pdf.setFontSize(12); pdf.text("Visualizations", margin, yPos); yPos += 7;
             
             const barCanvas = document.getElementById('defectCountChart');
             const pieCanvas = document.getElementById('defectPieChart');
-            const chartWidth = (pdfWidth - margin*2 - 10) / 2; // Half width minus gap
+            const chartWidth = (contentWidth - 10) / 2; // Half width minus gap
             
             try {
+                let barHeight = 0;
+                let pieHeight = 0;
+
                 if (barCanvas) {
                     const barImg = barCanvas.toDataURL('image/png', 1.0);
-                    const barHeight = (barCanvas.height * chartWidth) / barCanvas.width;
+                    barHeight = (barCanvas.height * chartWidth) / barCanvas.width;
+                    // FIX: Draw at `margin`
                     pdf.addImage(barImg,'PNG', margin, yPos, chartWidth, barHeight);
                 }
                 if (pieCanvas) {
                     const pieImg = pieCanvas.toDataURL('image/png', 1.0);
-                    const pieHeight = (pieCanvas.height * chartWidth) / pieCanvas.width;
+                    pieHeight = (pieCanvas.height * chartWidth) / pieCanvas.width;
+                    // FIX: Draw at `margin + chartWidth + 10` to prevent overlap
                     pdf.addImage(pieImg,'PNG', margin + chartWidth + 10, yPos, chartWidth, pieHeight);
-                    yPos += Math.max(pieHeight, barHeight || 0) + 10;
                 }
-                // Scatter removed
+                yPos += Math.max(pieHeight, barHeight) + 10;
+
             } catch(e) { console.error("Error adding charts to PDF:", e); }
         }
 
-        // Add Annotated Image
+        // --- 5. Annotated Image ---
         if (yPos + 80 > pdfHeight) { pdf.addPage(); yPos = 20; }
         pdf.setFontSize(12); pdf.text('Annotated Image', margin, yPos); yPos+=7;
         try { 
             const imgData = lastAnalysisData.annotated_image_url; 
             const props = pdf.getImageProperties(imgData); 
-            const imgWidth = pdfWidth - margin*2; 
+            const imgWidth = contentWidth; 
             const imgHeight = (props.height * imgWidth)/props.width; 
             if (yPos + imgHeight > pdfHeight) { pdf.addPage(); yPos=20; pdf.text('Annotated Image (Continued)', margin, yPos); yPos+=7; } 
             pdf.addImage(imgData,'PNG', margin, yPos, imgWidth, imgHeight);
         } catch(e) { console.error("Error adding annotated image to PDF:", e); }
 
-        // --- PDF SAVING ---
+        // --- 6. Save PDF ---
         const safeName = (testName || 'report').replace(/[^a-zA-Z0-9.\-_]/g,'_'); 
         pdf.save(`CircuitGuard_Report_${safeName}.pdf`);
     
@@ -355,8 +400,6 @@ async function generatePDF() {
         pdfButton.textContent = '⬇️ Download PDF Report';
     }
 }
-
-
 //Fuction to generate the CSV FILE
 function downloadCSV() {
     if (!lastAnalysisData || !lastAnalysisData.defects) {
