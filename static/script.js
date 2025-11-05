@@ -132,7 +132,7 @@ form.addEventListener('submit', async (e) => {
               // Show chart containers
             document.getElementById('chart-container-bar').style.display = 'block';
             document.getElementById('chart-container-pie').style.display = 'block';
-            document.getElementById("chart-container-scatter").style.display = 'none';
+            document.getElementById("chart-container-scatter").style.display = 'block';
 
             // Populate table
             defects.forEach(d => {
@@ -442,3 +442,4 @@ function downloadCSV() {
         URL.revokeObjectURL(url);
     }
 }
+
