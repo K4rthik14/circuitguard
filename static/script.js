@@ -3,6 +3,7 @@
 let myBarChart = null;
 let myPieChart = null;
 let lastAnalysisData = null;
+let myScatterChart = null;
 
 const form = document.getElementById('upload-form');
 const templateInput = document.getElementById('template_image');
@@ -96,6 +97,7 @@ form.addEventListener('submit', async (e) => {
 
     if (myBarChart) myBarChart.destroy();
     if (myPieChart) myPieChart.destroy();
+    if (myScatterChart) myScatterChart.destroy();
 
     try {
         const res = await fetch('/api/detect', { method: 'POST', body: formData });
@@ -125,10 +127,12 @@ form.addEventListener('submit', async (e) => {
             // Hide chart containers
             document.getElementById('chart-container-bar').style.display = 'none';
             document.getElementById('chart-container-pie').style.display = 'none';
+            document.getElementById("chart-container-scatter").style.display = 'none';
         } else {
               // Show chart containers
             document.getElementById('chart-container-bar').style.display = 'block';
             document.getElementById('chart-container-pie').style.display = 'block';
+            document.getElementById("chart-container-scatter").style.display = 'none';
 
             // Populate table
             defects.forEach(d => {
@@ -138,7 +142,8 @@ form.addEventListener('submit', async (e) => {
 
             // Render charts
             renderDefectChart(summaryCounts);
-             renderDefectPie(summaryCounts);
+            renderDefectPie(summaryCounts);
+            renderScatterPlot(defects);
         }
 
         // Add Download buttons

@@ -292,7 +292,17 @@ input[type="file"] {
 @media (max-width: 900px) { 
     .stats-grid { grid-template-columns: 1fr; }
 }
-
+#chart-container-scatter {
+    width: 100%;
+    height: 400px; /* A bit taller for a scatter plot */
+    position: relative;
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    background-color: #fdfdfd;
+    box-sizing: border-box;
+    margin-bottom: 25px; /* Add some space before the summary table */
+}
 /* --- Summary Table --- */
 #summary-container {
     margin: 20px 0;
