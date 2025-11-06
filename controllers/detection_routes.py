@@ -22,42 +22,28 @@ def _to_data_url(img_bgr: np.ndarray) -> str:
 
 # detection_routes.py
 
+# detection_routes.py
+
 def _create_bar_chart_base64(summary_data: dict) -> str:
     if not summary_data: return ""
 
     labels = list(summary_data.keys())
     counts = list(summary_data.values())
 
-    fig, ax = plt.subplots(figsize=(5, 4)) # Create a figure and an axes
-    ax.bar(labels, counts, color='rgba(54,162,235,0.6)', edgecolor='rgba(54,162,235,1)', linewidth=1)
+    fig, ax = plt.subplots(figsize=(5, 4))
+
+    # --- FIX ---
+    # Use hex code for color and a separate alpha
+    ax.bar(labels, counts,
+           color='#36A2EB',  # Hex for 'rgba(54,162,235,0.6)'
+           edgecolor='#36A2EB',
+           linewidth=1,
+           alpha=0.6) # Separate alpha
+    # --- END FIX ---
 
     ax.set_ylabel('Defect Count')
     ax.set_title('Defect Count per Class')
-    plt.xticks(rotation=45, ha='right') # Rotate x-axis labels
-
-    # Save to a memory buffer
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', bbox_inches='tight')
-    buf.seek(0)
-
-    img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-    plt.close(fig) # IMPORTANT: Close the figure to free up memory
-    return 'data:image/png;base64,' + img_base64
-
-def _create_pie_chart_base64(summary_data: dict) -> str:
-    if not summary_data: return ""
-
-    labels = list(summary_data.keys())
-    counts = list(summary_data.values())
-
-    # Define colors to match your original JS
-    color_map = { 'copper':'rgba(255,159,64,0.7)','mousebite':'rgba(75,192,192,0.7)','open':'rgba(54,162,235,0.7)','pin-hole':'rgba(255,206,86,0.7)','short':'rgba(255,99,132,0.7)','spur':'rgba(153,102,255,0.7)','unknown':'rgba(201,203,207,0.7)' }
-    colors = [color_map.get(l, color_map['unknown']) for l in labels]
-
-    fig, ax = plt.subplots(figsize=(5, 4))
-    ax.pie(counts, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors)
-    ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-    ax.set_title('Defect Class Distribution')
+    plt.xticks(rotation=45, ha='right')
 
     buf = io.BytesIO()
     fig.savefig(buf, format='png', bbox_inches='tight')
@@ -67,7 +53,39 @@ def _create_pie_chart_base64(summary_data: dict) -> str:
     plt.close(fig)
     return 'data:image/png;base64,' + img_base64
 
-# detection_routes.py
+def _create_pie_chart_base64(summary_data: dict) -> str:
+    if not summary_data: return ""
+
+    labels = list(summary_data.keys())
+    counts = list(summary_data.values())
+
+    # --- FIX ---
+    # Use matplotlib-friendly hex codes
+    color_map = {
+        'copper': '#FF9F40',
+        'mousebite': '#4BC0C0',
+        'open': '#36A2EB',
+        'pin-hole': '#FFCE56',
+        'short': '#FF6384',
+        'spur': '#9966FF',
+        'unknown': '#C9CBCF'
+    }
+    # --- END FIX ---
+
+    colors = [color_map.get(l, color_map['unknown']) for l in labels]
+
+    fig, ax = plt.subplots(figsize=(5, 4))
+    ax.pie(counts, labels=labels, autopct='%1.1f%%', startangle=90, colors=colors)
+    ax.axis('equal')
+    ax.set_title('Defect Class Distribution')
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight')
+    buf.seek(0)
+
+    img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    plt.close(fig)
+    return 'data:image/png;base64,' + img_base64
 
 def _create_scatter_chart_base64(defects: list) -> str:
     if not defects: return ""
