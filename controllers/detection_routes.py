@@ -51,7 +51,7 @@ def _create_scatter_chart_fig(defects: list): # Renamed and changed return
         if label not in grouped_defects: grouped_defects[label] = {'x': [], 'y': []}
         grouped_defects[label]['x'].append(d['x']); grouped_defects[label]['y'].append(d['y'])
     colors = { 'copper': '#FF9F40', 'mousebite': '#4BC0C0', 'open': '#36A2EB', 'pin-hole': '#FFCE56', 'short': '#FF6384', 'spur': '#9966FF', 'unknown': '#C9CBCF' }
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(5, 3))
     for label, coords in grouped_defects.items():
         ax.scatter(coords['x'], coords['y'], label=label, c=colors.get(label, colors['unknown']), s=30, alpha=0.7)
     ax.set_title('Defect Scatter Plot'); ax.set_xlabel('X Position (px)'); ax.set_ylabel('Y Position (px)')

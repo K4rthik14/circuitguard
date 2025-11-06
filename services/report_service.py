@@ -13,7 +13,7 @@ class PDFReport(FPDF):
     def header(self):
         self.set_font('Helvetica', 'B', 16)
         self.cell(0, 10, 'CircuitGuard - Defect Analysis Report', 0, 1, 'C')
-        # Reset Y to 10mm (top margin) for content
+        # Reset Y to 20mm (inside the top margin) for content
         self.set_y(20)
 
     def footer(self):
@@ -25,7 +25,7 @@ class PDFReport(FPDF):
         # --- NEW PAGE BORDER ---
         self.set_draw_color(0, 0, 0) # Black
         self.set_line_width(0.3)
-        # Draw rect at 10mm margins
+        # Draw rect at 10mm margins (from edge of page)
         self.rect(10, 10, self.w - 20, self.h - 20)
         # --- END NEW BORDER ---
 
@@ -42,6 +42,7 @@ class PDFReport(FPDF):
                 pil_img.save(buf, format='PNG')
                 buf.seek(0)
                 img_h = (pil_img.height * w) / pil_img.width
+                # Check if adding this image will overflow the page
                 if self.get_y() + img_h + 10 > self.page_break_trigger:
                     self.add_page()
                     self.set_y(20) # Reset Y pos
@@ -104,15 +105,42 @@ class PDFReport(FPDF):
 
 def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, bar_fig, pie_fig, scatter_fig):
     """
-    Main function to generate the PDF report.
+    Main function to generate the PDF report in the user-specified order.
     """
     pdf = PDFReport()
-    pdf.set_auto_page_break(True, margin=15)
+    # Set margins to 15mm (for the border at 10mm)
     pdf.set_left_margin(15)
     pdf.set_right_margin(15)
-    pdf.add_page()
+    pdf.set_auto_page_break(True, margin=15)
+    pdf.add_page() # Start Page 1
 
-    # 1. Summary
+    # --- 1. INPUT IMAGES (User Order 1) ---
+    pdf.set_y(20) # Reset Y pos
+    pdf.add_chapter_title('Input Images')
+    page_width = pdf.epw / 2 - 5 # Effective page width / 2, minus gap
+
+    y_start_inputs = pdf.get_y() # Get Y before images
+    y_after_template = y_start_inputs
+    if template_pil:
+        pdf.add_image_from_pil(template_pil, "Template Image", w=page_width)
+        y_after_template = pdf.get_y()
+
+    # Reset Y to start, move X to the right column
+    pdf.set_y(y_start_inputs)
+    pdf.set_x(page_width + 20) # 15mm margin + page_width + 5mm gap
+    y_after_test = y_start_inputs
+
+    if test_pil:
+        pdf.add_image_from_pil(test_pil, "Test Image", w=page_width)
+        y_after_test = pdf.get_y()
+
+    # Set Y to the bottom of the taller image
+    pdf.set_y(max(y_after_template, y_after_test))
+    pdf.set_x(15) # Reset X
+
+    # --- 2. SUMMARY & DEFECT DETAILS (User Order 2) ---
+    pdf.add_page() # Start Page 2
+    pdf.set_y(20) # Reset Y pos
     pdf.add_chapter_title('Summary')
     pdf.set_font('Helvetica', '', 11)
     pdf.cell(0, 6, f"Total Defects Found: {len(defects)}", 0, 1)
@@ -121,43 +149,33 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
             pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
     pdf.ln(5)
 
-    # 2. Defect Table
     pdf.add_chapter_title('Defect Details')
     pdf.add_defect_table(defects)
     pdf.ln(5)
 
-    # 3. Annotated Image
-    if annotated_bgr is not None:
-        pdf.add_chapter_title('Annotated Image')
-        annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
-        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result")
-        pdf.ln(5)
 
-    # 4. Charts (NEW ALIGNMENT LOGIC)
-    pdf.add_page()
+    # --- 3. VISUALIZATIONS (User Order 3) ---
+    pdf.add_page() # Start Page 3
     pdf.set_y(20) # Reset Y pos
     pdf.add_chapter_title('Visualizations')
 
-    page_width = pdf.epw / 2 - 5 # Effective page width / 2, minus gap
     y_start_charts = pdf.get_y() # Get Y before charts
+    y_after_bar = y_start_charts
 
     if bar_fig:
         pdf.add_image_from_fig(bar_fig, "Defect Count per Class", w=page_width)
         y_after_bar = pdf.get_y()
-        plt.close(bar_fig)
-    else:
-        y_after_bar = y_start_charts
+        plt.close(bar_fig) # Close fig individually
 
     # Reset Y to start, move X to the right column
     pdf.set_y(y_start_charts)
-    pdf.set_x(page_width + 20) # 15mm margin + page_width + 5mm gap
+    pdf.set_x(page_width + 20)
+    y_after_pie = y_start_charts
 
     if pie_fig:
         pdf.add_image_from_fig(pie_fig, "Defect Class Distribution", w=page_width)
         y_after_pie = pdf.get_y()
-        plt.close(pie_fig)
-    else:
-        y_after_pie = y_start_charts
+        plt.close(pie_fig) # Close fig individually
 
     # Set Y to the bottom of the *taller* of the two charts
     pdf.set_y(max(y_after_bar, y_after_pie))
@@ -165,35 +183,19 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
 
     if scatter_fig:
         pdf.ln(5) # Add a little space
-        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot")
-        plt.close(scatter_fig)
+        # Use a medium-wide image for the scatter plot
+        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=pdf.epw * 0.8)
+        plt.close(scatter_fig) # Close fig individually
 
-    # 5. Input Images (NEW ALIGNMENT LOGIC)
-    pdf.add_page()
-    pdf.set_y(20) # Reset Y pos
-    pdf.add_chapter_title('Input Images')
-
-    y_start_inputs = pdf.get_y() # Get Y before images
-
-    if template_pil:
-        pdf.add_image_from_pil(template_pil, "Template Image", w=page_width)
-        y_after_template = pdf.get_y()
-    else:
-        y_after_template = y_start_inputs
-
-    # Reset Y to start, move X to the right column
-    pdf.set_y(y_start_inputs)
-    pdf.set_x(page_width + 20)
-
-    if test_pil:
-        pdf.add_image_from_pil(test_pil, "Test Image", w=page_width)
-        y_after_test = pdf.get_y()
-    else:
-        y_after_test = y_start_inputs
-
-    # Set Y to the bottom of the taller image
-    pdf.set_y(max(y_after_template, y_after_test))
+    # --- 4. ANNOTATED IMAGE (User Order 4) ---
+    if annotated_bgr is not None:
+        pdf.add_page() # Start Page 4
+        pdf.set_y(20) # Reset Y pos
+        pdf.add_chapter_title('Annotated Image')
+        annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
+        # Use 75% of the effective page width for "medium sized"
+        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.75)
+        pdf.ln(5)
 
     # Return as bytes
-    # The fix for the '.encode()' error is to return the raw bytearray
     return pdf.output()
