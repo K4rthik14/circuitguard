@@ -176,7 +176,10 @@ def detect_defects_api():
             "annotated_image_url": _to_data_url(result["annotated_image_bgr"]),
             "diff_image_url": _to_data_url(result["diff_image_bgr"]),
             "mask_image_url": _to_data_url(result["mask_image_bgr"]),
-            "defects": result["defects"]
+            "defects": result["defects"],
+            "bar_chart_url": bar_chart_url,
+            "pie_chart_url": pie_chart_url,
+            "scatter_chart_url": scatter_chart_url
         }
         return jsonify(payload)
     except Exception as e:
