@@ -23,33 +23,23 @@ const diffImage = document.getElementById('diff-image');
 const maskImage = document.getElementById('mask-image');
 
 // --- Slider Value Synchronization ---
-// Connects sliders to their number inputs and text displays
 ['diffThreshold', 'minArea', 'morphIter'].forEach(id => {
     const slider = document.getElementById(id);
     if (!slider) return;
-
     const displaySpan = slider.parentElement.parentElement.querySelector('label > span');
     const numInput = document.getElementById(id + 'Num');
-
-    // Set initial values from slider
     if (displaySpan) displaySpan.textContent = slider.value;
     if (numInput) numInput.value = slider.value;
-
-    // Update span/number input when slider moves
     slider.addEventListener('input', () => {
         if (displaySpan) displaySpan.textContent = slider.value;
         if (numInput) numInput.value = slider.value;
     });
-
-    // Update span/slider when number input changes
     if (numInput) {
         numInput.addEventListener('input', () => {
             const val = parseInt(numInput.value || '0', 10);
             const min = parseInt(numInput.min, 10);
             const max = parseInt(numInput.max, 10);
-            // Ensure value stays within min/max range
             const clampedVal = Math.max(min, Math.min(max, val));
-
             slider.value = clampedVal;
             numInput.value = clampedVal;
             if (displaySpan) displaySpan.textContent = String(clampedVal);
@@ -58,7 +48,6 @@ const maskImage = document.getElementById('mask-image');
 });
 
 // --- Image Preview ---
-// Shows a preview of the selected image
 function setupPreview(input, preview) {
     if (!input || !preview) return;
     input.addEventListener('change', () => {
@@ -75,8 +64,8 @@ setupPreview(testInput, testPreview);
 
 // --- Main Form Submission Handler ---
 form.addEventListener('submit', async (e) => {
-    e.preventDefault(); // Stop default page refresh
-    lastAnalysisData = null; // Clear old data
+    e.preventDefault();
+    lastAnalysisData = null;
 
     const templateFile = templateInput.files[0];
     const testFile = testInput.files[0];
@@ -85,7 +74,6 @@ form.addEventListener('submit', async (e) => {
         return;
     }
 
-    // 1. Prepare form data to send
     const formData = new FormData();
     formData.append('template_image', templateFile);
     formData.append('test_image', testFile);
@@ -93,22 +81,18 @@ form.addEventListener('submit', async (e) => {
     formData.append('minArea', document.getElementById('minArea').value);
     formData.append('morphIter', document.getElementById('morphIter').value);
 
-    // 2. Set UI to "loading" state
     detectButton.disabled = true;
     detectButton.textContent = 'Processing...';
     spinner.style.display = 'block';
-    resultsSection.style.display = 'block'; // Show the whole section
-    outputDisplay.style.display = 'none'; // Hide the results part
+    resultsSection.style.display = 'block';
+    outputDisplay.style.display = 'none';
     errorMessage.style.display = 'none';
     successMessage.style.display = 'none';
     noDefectsMessage.style.display = 'none';
-    downloadButtonContainer.innerHTML = ''; // Clear old buttons
+    downloadButtonContainer.innerHTML = '';
     summaryBody.innerHTML = '<tr><td colspan="6"><em>Processing...</em></td></tr>';
 
-    // (Chart.js .destroy() calls are removed)
-
     try {
-        // 3. Send API request
         const res = await fetch('/api/detect', { method: 'POST', body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error || res.statusText);
@@ -116,13 +100,11 @@ form.addEventListener('submit', async (e) => {
             throw new Error('Invalid response from server');
         }
 
-        // 4. Success! Store data and update UI
         lastAnalysisData = data;
         successMessage.textContent = ' Analysis Complete!';
         successMessage.style.display = 'block';
-        outputDisplay.style.display = 'block'; // Show results
+        outputDisplay.style.display = 'block';
 
-        // Set image sources from API response
         resultImage.src = data.annotated_image_url;
         diffImage.src = data.diff_image_url;
         maskImage.src = data.mask_image_url;
@@ -130,38 +112,31 @@ form.addEventListener('submit', async (e) => {
         const defects = data.defects;
         const total = defects.length;
         defectCount.textContent = total;
-        summaryBody.innerHTML = ''; // Clear "Processing..."
+        summaryBody.innerHTML = '';
 
         if (total === 0) {
-            // Case: No defects found
             noDefectsMessage.style.display = 'block';
             summaryBody.innerHTML = '<tr><td colspan="6"> No defects found!</td></tr>';
-            // Hide chart containers
             document.getElementById('chart-container-bar').style.display = 'none';
             document.getElementById('chart-container-pie').style.display = 'none';
             document.getElementById("chart-container-scatter").style.display = 'none';
         } else {
-            // Case: Defects found
-            // Show chart containers
             document.getElementById('chart-container-bar').style.display = 'block';
             document.getElementById('chart-container-pie').style.display = 'block';
             document.getElementById("chart-container-scatter").style.display = 'block';
 
-            // Set chart image sources from API response
             document.getElementById('bar-chart-img').src = data.bar_chart_url;
             document.getElementById('pie-chart-img').src = data.pie_chart_url;
             document.getElementById('scatter-chart-img').src = data.scatter_chart_url;
 
-            // Populate summary table
             defects.forEach(d => {
                 const row = summaryBody.insertRow();
                 row.innerHTML = `<td>${d.id}</td><td>${d.label}</td><td>${(d.confidence*100).toFixed(2)}%</td><td>(${d.x}, ${d.y})</td><td>(${d.w}, ${d.h})</td><td>${d.area}</td>`;
             });
-
-            // (Chart.js render() calls are removed)
         }
 
-        // 5. Create Download Buttons
+        // --- Create Download Buttons ---
+
         // Download Annotated Image
         const downloadImgLink = document.createElement('a');
         downloadImgLink.href = data.annotated_image_url;
@@ -176,8 +151,49 @@ form.addEventListener('submit', async (e) => {
         pdfButton.id = 'download-pdf-button';
         pdfButton.className = 'btn-download pdf-button';
         pdfButton.textContent = '⬇️ Download PDF Report';
-        // Calls generatePDF (from report.js) and passes the data
-        pdfButton.onclick = () => generatePDF(lastAnalysisData);
+
+        pdfButton.onclick = async () => {
+            pdfButton.disabled = true;
+            pdfButton.textContent = '⏳ Generating PDF...';
+
+            try {
+                // Re-create form data for the PDF endpoint
+                const pdfFormData = new FormData();
+                pdfFormData.append('template_image', templateInput.files[0]);
+                pdfFormData.append('test_image', testInput.files[0]);
+                pdfFormData.append('diffThreshold', document.getElementById('diffThreshold').value);
+                pdfFormData.append('minArea', document.getElementById('minArea').value);
+                pdfFormData.append('morphIter', document.getElementById('morphIter').value);
+
+                const res = await fetch('/api/download_report', {
+                    method: 'POST',
+                    body: pdfFormData
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({error: 'PDF generation failed on server.'}));
+                    throw new Error(errData.error || 'PDF generation failed');
+                }
+
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                const safeFilename = testInput.files[0].name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+                link.download = `CircuitGuard_Report_${safeFilename}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+            } catch (err) {
+                alert('Error generating PDF: ' + err.message);
+                console.error(err);
+            } finally {
+                pdfButton.disabled = false;
+                pdfButton.textContent = '⬇️ Download PDF Report';
+            }
+        };
         downloadButtonContainer.appendChild(pdfButton);
 
         // Download CSV Log
@@ -185,16 +201,14 @@ form.addEventListener('submit', async (e) => {
         csvButton.id = 'download-csv-button';
         csvButton.className = 'btn-download csv-button';
         csvButton.textContent = '⬇️ Download CSV Log';
-        // Calls downloadCSV (from report.js) and passes the data
+        // This function is now defined below
         csvButton.onclick = () => downloadCSV(lastAnalysisData);
         downloadButtonContainer.appendChild(csvButton);
 
     } catch (err) {
-        // 6. Handle Errors
         showError(err.message || String(err));
         console.error(err);
     } finally {
-        // 7. Reset UI from "loading" state
         spinner.style.display = 'none';
         detectButton.disabled = false;
         detectButton.textContent = 'Detect Defects';
@@ -206,5 +220,41 @@ function showError(message) {
     errorMessage.textContent = message;
     errorMessage.style.display = 'block';
     successMessage.style.display = 'none';
-    outputDisplay.style.display = 'none'; // Hide results on error
+    outputDisplay.style.display = 'none';
+}
+
+// --- ADDED: CSV Download Function ---
+function downloadCSV(analysisData) {
+    if (!analysisData || !analysisData.defects) {
+        alert('Run an analysis first or no defects found.');
+        return;
+    }
+
+    const defects = analysisData.defects;
+    const testImageInput = document.getElementById('test_image');
+    const testName = (testImageInput && testImageInput.files[0]) ? testImageInput.files[0].name : 'report';
+    const safeName = (testName || 'report').replace(/[^a-zA-Z0-9.\-_]/g,'_');
+    const filename = `CircuitGuard_Log_${safeName}.csv`;
+
+    const headers = ['id', 'label', 'confidence', 'x', 'y', 'w', 'h', 'area'];
+    let csvContent = headers.join(',') + '\n';
+
+    defects.forEach(d => {
+        const confidencePercent = (d.confidence * 100).toFixed(2);
+        const row = [d.id, d.label, confidencePercent, d.x, d.y, d.w, d.h, d.area];
+        csvContent += row.join(',') + '\n';
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
 }

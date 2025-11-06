@@ -103,7 +103,7 @@ body {
     width: auto; /* Override previous width */
     max-width: 100%; /* Ensure it doesn't overflow */
     min-width: 0; /* Allow shrinking inside flex */
-    margin: 0; 
+    margin: 0;
     padding: 0;
     overflow-x: hidden; /* Prevent its children from causing scroll */
 }
@@ -280,7 +280,8 @@ input[type="file"] {
 }
 #chart-container-bar, #chart-container-pie {
     width: 100%;
-    height: 350px;
+    /* height: 350px; */ /* Let content define height */
+    min-height: 350px;
     position: relative;
     border: 1px solid var(--border-color);
     padding: 15px;
@@ -289,12 +290,13 @@ input[type="file"] {
     box-sizing: border-box; /* Ensure padding is included in width */
 }
 /* Stack charts on smaller screens */
-@media (max-width: 900px) { 
+@media (max-width: 900px) {
     .stats-grid { grid-template-columns: 1fr; }
 }
 #chart-container-scatter {
     width: 100%;
-    height: 400px; /* A bit taller for a scatter plot */
+    /* height: 400px; */ /* A bit taller for a scatter plot */
+    min-height: 400px;
     position: relative;
     border: 1px solid var(--border-color);
     padding: 15px;
@@ -354,19 +356,9 @@ input[type="file"] {
     max-width: 100%;
     height: auto;
     border: none;
-    display: block; 
+    display: block;
     margin: 0 auto;
 }
-
-/* --- REMOVED THE CONFLICTING CANVAS STYLE --- */
-/*
-canvas {
-    display: block;
-    width: 100% !important; 
-    max-width: 100% !important;
-    height: 100% !important; 
-}
-*/
 
 #download-button-container {
     text-align: center;

@@ -1,3 +1,4 @@
+# services/defect_service.py
 import os
 from typing import List, Tuple, Dict
 import numpy as np
@@ -29,13 +30,20 @@ def _load_model():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = timm.create_model('efficientnet_b4', pretrained=False, num_classes=len(CLASSES))
     if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(MODEL_PATH)
+        raise FileNotFoundError(f"Model file not found at: {MODEL_PATH}")
     try:
+        # Recommended way to load
         state = torch.load(MODEL_PATH, map_location=device, weights_only=True)
     except Exception:
+        # Fallback for older/different save formats
         state = torch.load(MODEL_PATH, map_location=device)
+
+    # Handle common state dict wrapping issues
     if isinstance(state, dict) and 'state_dict' in state:
         state = state['state_dict']
+    if isinstance(state, dict) and 'model' in state:
+        state = state['model']
+
     state = {k.replace('module.', ''): v for k, v in state.items()}
     model.load_state_dict(state)
     model.to(device)
@@ -66,13 +74,18 @@ def _classify_roi(roi: Image.Image) -> Tuple[str, float]:
 def _find_defects(template_pil: Image.Image, test_pil: Image.Image, diff_threshold: int, morph_iterations: int, min_area: int):
     template_gray = np.array(template_pil.convert('L'))
     test_gray = np.array(test_pil.convert('L'))
+
+    # Ensure images are the same size for subtraction
     h, w = template_gray.shape
-    test_gray = cv2.resize(test_gray, (w, h))
+    if test_gray.shape != (h, w):
+        test_gray = cv2.resize(test_gray, (w, h))
 
     diff = cv2.absdiff(template_gray, test_gray)
+
     if diff_threshold > 0:
         _, mask = cv2.threshold(diff, diff_threshold, 255, cv2.THRESH_BINARY)
     else:
+        # Use Otsu's method if threshold is 0
         _, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     kernel = np.ones((3,3), np.uint8)
@@ -88,11 +101,16 @@ def _find_defects(template_pil: Image.Image, test_pil: Image.Image, diff_thresho
         if area <= min_area:
             continue
         x, y, ww, hh = cv2.boundingRect(cnt)
+
+        # Add basic validation for bounding box
         if ww <= 0 or hh <= 0:
             continue
+
         x2, y2 = x + ww, y + hh
+        # Ensure box is within image bounds
         if x2 > test_rgb.width or y2 > test_rgb.height:
             continue
+
         rois.append(test_rgb.crop((x, y, x2, y2)))
         boxes.append((x, y, ww, hh))
         areas.append(area)
@@ -100,16 +118,24 @@ def _find_defects(template_pil: Image.Image, test_pil: Image.Image, diff_thresho
     diff_bgr = cv2.cvtColor(diff, cv2.COLOR_GRAY2BGR)
     mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
     output_bgr = cv2.cvtColor(np.array(test_rgb), cv2.COLOR_RGB2BGR)
+
     return rois, boxes, output_bgr, diff_bgr, mask_bgr, areas
 
 def _draw_boxes(image_bgr: np.ndarray, boxes: List[Tuple[int,int,int,int]], labels: List[str]) -> np.ndarray:
     out = image_bgr.copy()
     for (x, y, w, h), label in zip(boxes, labels):
-        cv2.rectangle(out, (x, y), (x + w, y + h), (255, 0, 0), 2)
-        cv2.putText(out, label, (x, max(12, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,0,0), 2, cv2.LINE_AA)
+        cv2.rectangle(out, (x, y), (x + w, y + h), (0, 0, 255), 2) # Red color
+        # Put text
+        label_text = f"{label}"
+        (text_w, text_h), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        # Draw background rect
+        cv2.rectangle(out, (x, y - text_h - 6), (x + text_w, y), (0, 0, 255), -1)
+        # Draw text
+        cv2.putText(out, label_text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
     return out
 
 def process_and_classify_defects(template_pil: Image.Image, test_pil: Image.Image, diff_threshold: int = 0, morph_iterations: int = 2, min_area: int = MIN_CONTOUR_AREA_DEFAULT) -> Dict:
+
     rois, boxes, out_bgr, diff_bgr, mask_bgr, areas = _find_defects(template_pil, test_pil, diff_threshold, morph_iterations, min_area)
 
     details = []
@@ -128,15 +154,17 @@ def process_and_classify_defects(template_pil: Image.Image, test_pil: Image.Imag
 
     annotated = _draw_boxes(out_bgr, boxes, labels) if boxes else out_bgr
 
+    # --- THIS IS THE CRITICAL FIX ---
     summary_counts = {}
     for d in details:
         label = d['label']
         summary_counts[label] = summary_counts.get(label, 0) + 1
+    # --- END CRITICAL FIX ---
 
     return {
         'annotated_image_bgr': annotated,
         'diff_image_bgr': diff_bgr,
         'mask_image_bgr': mask_bgr,
         'defects': details,
-        'summary': summary_counts
+        'summary': summary_counts # <-- It is now returned
     }
