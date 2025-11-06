@@ -278,10 +278,10 @@ input[type="file"] {
     margin-bottom: 25px;
     max-width: 100%;
 }
+
+/* --- FIX 3: Removed min-height --- */
 #chart-container-bar, #chart-container-pie {
     width: 100%;
-    /* height: 350px; */ /* Let content define height */
-    min-height: 350px;
     position: relative;
     border: 1px solid var(--border-color);
     padding: 15px;
@@ -293,10 +293,10 @@ input[type="file"] {
 @media (max-width: 900px) {
     .stats-grid { grid-template-columns: 1fr; }
 }
+
+/* --- FIX 3: Removed min-height --- */
 #chart-container-scatter {
     width: 100%;
-    /* height: 400px; */ /* A bit taller for a scatter plot */
-    min-height: 400px;
     position: relative;
     border: 1px solid var(--border-color);
     padding: 15px;
@@ -305,6 +305,8 @@ input[type="file"] {
     box-sizing: border-box;
     margin-bottom: 25px; /* Add some space before the summary table */
 }
+/* --- END FIX 3 --- */
+
 /* --- Summary Table --- */
 #summary-container {
     margin: 20px 0;
@@ -406,5 +408,3 @@ input[type="file"] {
     font-weight: 500;
     text-align: center;
 }
-
-/* Removed duplicate CSS rules */

@@ -33,7 +33,8 @@ class PDFReport(FPDF):
                 pil_img.save(buf, format='PNG')
                 buf.seek(0)
                 # Check if adding this image will overflow the page
-                if self.get_y() + 100 > self.page_break_trigger: # 100 is an estimate
+                img_h = (pil_img.height * w) / pil_img.width
+                if self.get_y() + img_h + 10 > self.page_break_trigger:
                     self.add_page()
                 self.image(buf, w=w)
                 self.set_font('Helvetica', 'I', 8)
@@ -48,7 +49,8 @@ class PDFReport(FPDF):
             with io.BytesIO() as buf:
                 fig.savefig(buf, format='png', bbox_inches='tight')
                 buf.seek(0)
-                if self.get_y() + 100 > self.page_break_trigger:
+                img_h = (fig.get_figheight() * w) / fig.get_figwidth()
+                if self.get_y() + img_h + 10 > self.page_break_trigger:
                     self.add_page()
                 self.image(buf, w=w)
                 self.set_font('Helvetica', 'I', 8)
@@ -99,8 +101,9 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
     pdf.add_chapter_title('Summary')
     pdf.set_font('Helvetica', '', 11)
     pdf.cell(0, 6, f"Total Defects Found: {len(defects)}", 0, 1)
-    for label, count in summary.items():
-        pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
+    if summary:
+        for label, count in summary.items():
+            pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
     pdf.ln(5)
 
     # 2. Defect Table
@@ -109,34 +112,47 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
     pdf.ln(5)
 
     # 3. Annotated Image
-    pdf.add_chapter_title('Annotated Image')
-    annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
-    pdf.add_image_from_pil(annotated_pil, "Final Annotated Result")
-    pdf.ln(5)
+    if annotated_bgr is not None:
+        pdf.add_chapter_title('Annotated Image')
+        annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
+        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result")
+        pdf.ln(5)
 
     # 4. Charts
     pdf.add_page()
     pdf.add_chapter_title('Visualizations')
-    # Place charts side-by-side
     page_width = pdf.epw / 2 - 5
-    pdf.add_image_from_fig(bar_fig, "Defect Count per Class", w=page_width)
-    y_after_bar = pdf.get_y() # Save Y position
-    pdf.set_y(y_after_bar - (bar_fig.get_figheight() * 25.4) - 12) # Move Y back up
-    pdf.set_x(page_width + 15)
-    pdf.add_image_from_fig(pie_fig, "Defect Class Distribution", w=page_width)
-    pdf.set_y(y_after_bar) # Move Y down past the tallest chart
 
-    pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot")
-    plt.close('all') # Close all figs to save memory
+    if bar_fig:
+        pdf.add_image_from_fig(bar_fig, "Defect Count per Class", w=page_width)
+        y_after_bar = pdf.get_y()
+        pdf.set_y(y_after_bar - (bar_fig.get_figheight() * 25.4) - 12) # Move Y back up
+        pdf.set_x(page_width + 15)
+        plt.close(bar_fig) # <-- FIX 1: Close fig individually
+
+    if pie_fig:
+        pdf.add_image_from_fig(pie_fig, "Defect Class Distribution", w=page_width)
+        pdf.set_y(pdf.get_y() if pdf.get_y() > y_after_bar else y_after_bar) # Move Y down
+        plt.close(pie_fig) # <-- FIX 1: Close fig individually
+
+    if scatter_fig:
+        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot")
+        plt.close(scatter_fig) # <-- FIX 1: Close fig individually
+
+    # plt.close('all') # <-- FIX 1: Removed this line, it breaks the state
 
     # 5. Input Images
     pdf.add_page()
     pdf.add_chapter_title('Input Images')
-    pdf.add_image_from_pil(template_pil, "Template Image", w=page_width)
-    y_after_template = pdf.get_y()
-    pdf.set_y(y_after_template - (template_pil.height * page_width / template_pil.width * 0.264583) - 12) # Move Y back up
-    pdf.set_x(page_width + 15)
-    pdf.add_image_from_pil(test_pil, "Test Image", w=page_width)
+    if template_pil:
+        pdf.add_image_from_pil(template_pil, "Template Image", w=page_width)
+        y_after_template = pdf.get_y()
+        pdf.set_y(y_after_template - (template_pil.height * page_width / template_pil.width * 0.264583) - 12) # Move Y back up
+        pdf.set_x(page_width + 15)
+
+    if test_pil:
+        pdf.add_image_from_pil(test_pil, "Test Image", w=page_width)
 
     # Return as bytes
-    return pdf.output(dest='S').encode('latin-1')
+    # FIX 2: Removed .encode('latin-1')
+    return pdf.output(dest='S')
