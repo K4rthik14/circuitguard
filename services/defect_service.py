@@ -127,6 +127,12 @@ def process_and_classify_defects(template_pil: Image.Image, test_pil: Image.Imag
         })
 
     annotated = _draw_boxes(out_bgr, boxes, labels) if boxes else out_bgr
+
+    summary_counts = {}
+    for d in details:
+        label = d['label']
+        summary_counts[label] = summary_counts.get(label, 0) + 1
+
     return {
         'annotated_image_bgr': annotated,
         'diff_image_bgr': diff_bgr,
