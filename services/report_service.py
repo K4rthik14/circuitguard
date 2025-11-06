@@ -182,8 +182,7 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
     pdf.set_x(15) # Reset X
 
     if scatter_fig:
-        pdf.ln(5) # Add a little space
-        # Use a medium-wide image for the scatter plot
+        # pdf.ln(5) # <-- FIX 1: REMOVED this line to tighten layout
         pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=pdf.epw * 0.8)
         plt.close(scatter_fig) # Close fig individually
 
@@ -193,8 +192,8 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
         pdf.set_y(20) # Reset Y pos
         pdf.add_chapter_title('Annotated Image')
         annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
-        # Use 75% of the effective page width for "medium sized"
-        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.75)
+        # --- FIX 2: CHANGED to 0.6 from 0.75 to make the image smaller ---
+        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.6)
         pdf.ln(5)
 
     # Return as bytes
