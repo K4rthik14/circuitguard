@@ -84,10 +84,11 @@ def _create_scatter_chart_base64(defects: list) -> str:
     fig, ax = plt.subplots(figsize=(6, 5))
 
     for label, coords in grouped_defects.items():
+        # Wrap the color in a list to apply it to all points in this group
         ax.scatter(coords['x'], coords['y'],
                    label=label,
-                   color=colors.get(label, colors['unknown']),
-                   s=30, alpha=0.7)
+                   c=[colors.get(label, colors['unknown'])], # <-- THE FIX IS HERE
+                   s=30)
 
     ax.set_title('Defect Scatter Plot')
     ax.set_xlabel('X Position (px)')
@@ -105,6 +106,7 @@ def _create_scatter_chart_base64(defects: list) -> str:
     img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
     plt.close(fig)
     return 'data:image/png;base64,' + img_base64
+
 
 
 @detection_bp.route('/detect', methods=['POST'])
