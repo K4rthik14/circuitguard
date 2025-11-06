@@ -132,6 +132,13 @@ def detect_defects_api():
             min_area=min_area
         )
 
+        summary = result.get('summary', {})
+        defects_list = result.get('defects', [])
+
+        bar_chart_url = _create_bar_chart_base64(summary)
+        pie_chart_url = _create_pie_chart_base64(summary)
+        scatter_chart_url = _create_scatter_chart_base64(defects_list)
+
         payload = {
             "annotated_image_url": _to_data_url(result["annotated_image_bgr"]),
             "diff_image_url": _to_data_url(result["diff_image_bgr"]),
