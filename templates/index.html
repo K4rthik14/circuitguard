@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CircuitGuard - PCB Defect Detection</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -89,16 +88,31 @@
                         <div id="chart-container-bar">
                             <h3>Defect Count per Class</h3>
                             <canvas id="defectCountChart"></canvas>
-                        </div>
+                    </div>
+
+                    <div id="chart-container-bar" style="display: none;"> <h3>Defect Count per Class</h3>
+                        <img id="bar-chart-img" src="#" alt="Defect Count Bar Chart" style="width: 100%; height: auto;">
+                    </div>
+
                         <div id="chart-container-pie">
                             <h3>Defect Class Distribution</h3>
                             <canvas id="defectPieChart"></canvas>
                         </div>
+
+                        <div id="chart-container-pie" style="display: none;"> <h3>Defect Class Distribution</h3>
+                            <img id="pie-chart-img" src="#" alt="Defect Distribution Pie Chart" style="width: 100%; height: auto;">
+                        </div>
                     </div>
 
-                </div><div id= "chart-container-scatter" style="display: none;">
+                <div id= "chart-container-scatter" style="display: none;">
                     <h3>Defect Scatter Plot (X,  Y)</h3>
-                    <canvas id = "defectScatterPlot"></canvas>
+                     <canvas id = "defectScatterPlot"></canvas>
+                </div>
+
+                <div id= "chart-container-scatter" style="display: none;">
+                    <h3>Defect Scatter Plot (X,  Y)</h3>
+                    <img id="scatter-chart-img" src="#" alt="Defect Scatter Plot" style="width: 100%; height: auto;">
+                </div>
 
                 </div>
 
