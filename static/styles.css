@@ -279,8 +279,9 @@ input[type="file"] {
     max-width: 100%;
 }
 
-/* --- FIX 3: Removed min-height --- */
-#chart-container-bar, #chart-container-pie {
+/* --- THE FIX IS HERE --- */
+/* Removed min-height from all chart containers */
+#chart-container-bar, #chart-container-pie, #chart-container-scatter {
     width: 100%;
     position: relative;
     border: 1px solid var(--border-color);
@@ -289,23 +290,16 @@ input[type="file"] {
     background-color: #fdfdfd;
     box-sizing: border-box; /* Ensure padding is included in width */
 }
+
+#chart-container-scatter {
+     margin-bottom: 25px; /* Add some space before the summary table */
+}
+/* --- END OF FIX --- */
+
 /* Stack charts on smaller screens */
 @media (max-width: 900px) {
     .stats-grid { grid-template-columns: 1fr; }
 }
-
-/* --- FIX 3: Removed min-height --- */
-#chart-container-scatter {
-    width: 100%;
-    position: relative;
-    border: 1px solid var(--border-color);
-    padding: 15px;
-    border-radius: var(--border-radius);
-    background-color: #fdfdfd;
-    box-sizing: border-box;
-    margin-bottom: 25px; /* Add some space before the summary table */
-}
-/* --- END FIX 3 --- */
 
 /* --- Summary Table --- */
 #summary-container {
