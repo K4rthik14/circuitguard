@@ -67,10 +67,12 @@ def _create_pie_chart_base64(summary_data: dict) -> str:
     plt.close(fig)
     return 'data:image/png;base64,' + img_base64
 
+# detection_routes.py
+
 def _create_scatter_chart_base64(defects: list) -> str:
     if not defects: return ""
 
-    # 1. Group defects by label for colored plotting
+    # 1. Group defects by label
     grouped_defects = {}
     for d in defects:
         label = d['label']
@@ -78,17 +80,29 @@ def _create_scatter_chart_base64(defects: list) -> str:
         grouped_defects[label]['x'].append(d['x'])
         grouped_defects[label]['y'].append(d['y'])
 
-    # 2. Define colors
-    colors = { 'copper': 'rgba(255,159,64,0.7)','mousebite': 'rgba(75,192,192,0.7)','open': 'rgba(54,162,235,0.7)','pin-hole': 'rgba(255,206,86,0.7)','short': 'rgba(255,99,132,0.7)','spur': 'rgba(153,102,255,0.7)','unknown': 'rgba(201,203,207,0.7)' }
+    # 2. Define colors using HEX CODES (matplotlib-friendly)
+    colors = {
+        'copper': '#FF9F40',
+        'mousebite': '#4BC0C0',
+        'open': '#36A2EB',
+        'pin-hole': '#FFCE56',
+        'short': '#FF6384',
+        'spur': '#9966FF',
+        'unknown': '#C9CBCF'
+    }
 
     fig, ax = plt.subplots(figsize=(6, 5))
 
     for label, coords in grouped_defects.items():
-        # Wrap the color in a list to apply it to all points in this group
+        # --- THE FIX ---
+        # 'c' is now a single hex string.
+        # 'alpha' is a separate argument.
         ax.scatter(coords['x'], coords['y'],
                    label=label,
-                   c=[colors.get(label, colors['unknown'])], # <-- THE FIX IS HERE
-                   s=30)
+                   c=colors.get(label, colors['unknown']),  # <-- Just the hex string
+                   s=30,
+                   alpha=0.7) # <-- Transparency is now here
+        # --- END FIX ---
 
     ax.set_title('Defect Scatter Plot')
     ax.set_xlabel('X Position (px)')
@@ -106,7 +120,6 @@ def _create_scatter_chart_base64(defects: list) -> str:
     img_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
     plt.close(fig)
     return 'data:image/png;base64,' + img_base64
-
 
 
 @detection_bp.route('/detect', methods=['POST'])
