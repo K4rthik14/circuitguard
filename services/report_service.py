@@ -1,170 +1,142 @@
-# services/defect_service.py
-import os
-from typing import List, Tuple, Dict
-import numpy as np
-import cv2
+# services/report_service.py
+from fpdf import FPDF
 from PIL import Image
+import numpy as np
+import io
+import matplotlib.pyplot as plt
+import cv2
 
-# Optional torch/timm import guarded so the API still works without GPU
-try:
-    import torch
-    import timm
-    from torchvision import transforms
-    TORCH_AVAILABLE = True
-except Exception:
-    TORCH_AVAILABLE = False
+class PDFReport(FPDF):
+    """
+    Custom PDF class to define a header and footer for the report.
+    """
+    def header(self):
+        self.set_font('Helvetica', 'B', 16)
+        self.cell(0, 10, 'CircuitGuard - Defect Analysis Report', 0, 1, 'C')
+        self.ln(5)
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'final_model.pth')
-CLASSES = ['copper', 'mousebite', 'open', 'pin-hole', 'short', 'spur']
-IMG_SIZE = 128
-MIN_CONTOUR_AREA_DEFAULT = 5
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Helvetica', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
-_model_cache = {}
+    def add_chapter_title(self, title):
+        self.set_font('Helvetica', 'B', 12)
+        self.set_fill_color(230, 230, 230)
+        self.cell(0, 6, title, 0, 1, 'L', True)
+        self.ln(4)
 
-def _load_model():
-    if not TORCH_AVAILABLE:
-        return None
-    if MODEL_PATH in _model_cache:
-        return _model_cache[MODEL_PATH]
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = timm.create_model('efficientnet_b4', pretrained=False, num_classes=len(CLASSES))
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found at: {MODEL_PATH}")
-    try:
-        # Recommended way to load
-        state = torch.load(MODEL_PATH, map_location=device, weights_only=True)
-    except Exception:
-        # Fallback for older/different save formats
-        state = torch.load(MODEL_PATH, map_location=device)
+    def add_image_from_pil(self, pil_img, title, w=190):
+        """Adds a PIL Image to the PDF."""
+        try:
+            with io.BytesIO() as buf:
+                pil_img.save(buf, format='PNG')
+                buf.seek(0)
+                # Check if adding this image will overflow the page
+                if self.get_y() + 100 > self.page_break_trigger: # 100 is an estimate
+                    self.add_page()
+                self.image(buf, w=w)
+                self.set_font('Helvetica', 'I', 8)
+                self.cell(0, 10, title, 0, 1, 'C')
+                self.ln(2)
+        except Exception as e:
+            print(f"Error adding PIL image {title}: {e}")
 
-    # Handle common state dict wrapping issues
-    if isinstance(state, dict) and 'state_dict' in state:
-        state = state['state_dict']
-    if isinstance(state, dict) and 'model' in state:
-        state = state['model']
+    def add_image_from_fig(self, fig, title, w=190):
+        """Adds a Matplotlib Figure to the PDF."""
+        try:
+            with io.BytesIO() as buf:
+                fig.savefig(buf, format='png', bbox_inches='tight')
+                buf.seek(0)
+                if self.get_y() + 100 > self.page_break_trigger:
+                    self.add_page()
+                self.image(buf, w=w)
+                self.set_font('Helvetica', 'I', 8)
+                self.cell(0, 10, title, 0, 1, 'C')
+                self.ln(2)
+        except Exception as e:
+            print(f"Error adding Matplotlib fig {title}: {e}")
 
-    state = {k.replace('module.', ''): v for k, v in state.items()}
-    model.load_state_dict(state)
-    model.to(device)
-    model.eval()
-    _model_cache[MODEL_PATH] = (model, device)
-    return _model_cache[MODEL_PATH]
+    def add_defect_table(self, defects):
+        """Adds the table of defect details."""
+        if not defects:
+            self.cell(0, 10, "No defects found.", 0, 1)
+            return
 
-def _classify_roi(roi: Image.Image) -> Tuple[str, float]:
-    if not TORCH_AVAILABLE:
-        return 'unknown', 0.0
-    model_device = _load_model()
-    if model_device is None:
-        return 'unknown', 0.0
-    model, device = model_device
-    transform = transforms.Compose([
-        transforms.Resize((IMG_SIZE, IMG_SIZE)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
-    with torch.no_grad():
-        tensor = transform(roi.convert('RGB')).unsqueeze(0).to(device)
-        out = model(tensor)
-        probs = torch.softmax(out, dim=1)
-        conf, idx = probs.max(dim=1)
-        label = CLASSES[int(idx.item())] if 0 <= int(idx.item()) < len(CLASSES) else 'unknown'
-        return label, float(conf.item())
+        self.set_font('Helvetica', 'B', 10)
+        col_width = self.epw / 6  # Effective page width / 6 columns
+        headers = ['#', 'Class', 'Confidence', 'Position', 'Size', 'Area']
+        for h in headers:
+            self.cell(col_width, 7, h, 1, 0, 'C')
+        self.ln()
 
-def _find_defects(template_pil: Image.Image, test_pil: Image.Image, diff_threshold: int, morph_iterations: int, min_area: int):
-    template_gray = np.array(template_pil.convert('L'))
-    test_gray = np.array(test_pil.convert('L'))
+        self.set_font('Helvetica', '', 9)
+        for d in defects:
+            if self.get_y() + 6 > self.page_break_trigger:
+                self.add_page()
+                self.set_font('Helvetica', 'B', 10)
+                for h in headers:
+                    self.cell(col_width, 7, h, 1, 0, 'C')
+                self.ln()
+                self.set_font('Helvetica', '', 9)
 
-    # Ensure images are the same size for subtraction
-    h, w = template_gray.shape
-    if test_gray.shape != (h, w):
-        test_gray = cv2.resize(test_gray, (w, h))
+            self.cell(col_width, 6, str(d['id']), 1)
+            self.cell(col_width, 6, d['label'], 1)
+            self.cell(col_width, 6, f"{d['confidence']*100:.1f}%", 1)
+            self.cell(col_width, 6, f"({d['x']}, {d['y']})", 1)
+            self.cell(col_width, 6, f"({d['w']}, {d['h']})", 1)
+            self.cell(col_width, 6, str(d['area']), 1)
+            self.ln()
 
-    diff = cv2.absdiff(template_gray, test_gray)
+def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, bar_fig, pie_fig, scatter_fig):
+    """
+    Main function to generate the PDF report.
+    """
+    pdf = PDFReport()
+    pdf.add_page()
 
-    if diff_threshold > 0:
-        _, mask = cv2.threshold(diff, diff_threshold, 255, cv2.THRESH_BINARY)
-    else:
-        # Use Otsu's method if threshold is 0
-        _, mask = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # 1. Summary
+    pdf.add_chapter_title('Summary')
+    pdf.set_font('Helvetica', '', 11)
+    pdf.cell(0, 6, f"Total Defects Found: {len(defects)}", 0, 1)
+    for label, count in summary.items():
+        pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
+    pdf.ln(5)
 
-    kernel = np.ones((3,3), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=morph_iterations)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+    # 2. Defect Table
+    pdf.add_chapter_title('Defect Details')
+    pdf.add_defect_table(defects)
+    pdf.ln(5)
 
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # 3. Annotated Image
+    pdf.add_chapter_title('Annotated Image')
+    annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
+    pdf.add_image_from_pil(annotated_pil, "Final Annotated Result")
+    pdf.ln(5)
 
-    rois, boxes, areas = [], [], []
-    test_rgb = test_pil.convert('RGB')
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if area <= min_area:
-            continue
-        x, y, ww, hh = cv2.boundingRect(cnt)
+    # 4. Charts
+    pdf.add_page()
+    pdf.add_chapter_title('Visualizations')
+    # Place charts side-by-side
+    page_width = pdf.epw / 2 - 5
+    pdf.add_image_from_fig(bar_fig, "Defect Count per Class", w=page_width)
+    y_after_bar = pdf.get_y() # Save Y position
+    pdf.set_y(y_after_bar - (bar_fig.get_figheight() * 25.4) - 12) # Move Y back up
+    pdf.set_x(page_width + 15)
+    pdf.add_image_from_fig(pie_fig, "Defect Class Distribution", w=page_width)
+    pdf.set_y(y_after_bar) # Move Y down past the tallest chart
 
-        # Add basic validation for bounding box
-        if ww <= 0 or hh <= 0:
-            continue
+    pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot")
+    plt.close('all') # Close all figs to save memory
 
-        x2, y2 = x + ww, y + hh
-        # Ensure box is within image bounds
-        if x2 > test_rgb.width or y2 > test_rgb.height:
-            continue
+    # 5. Input Images
+    pdf.add_page()
+    pdf.add_chapter_title('Input Images')
+    pdf.add_image_from_pil(template_pil, "Template Image", w=page_width)
+    y_after_template = pdf.get_y()
+    pdf.set_y(y_after_template - (template_pil.height * page_width / template_pil.width * 0.264583) - 12) # Move Y back up
+    pdf.set_x(page_width + 15)
+    pdf.add_image_from_pil(test_pil, "Test Image", w=page_width)
 
-        rois.append(test_rgb.crop((x, y, x2, y2)))
-        boxes.append((x, y, ww, hh))
-        areas.append(area)
-
-    diff_bgr = cv2.cvtColor(diff, cv2.COLOR_GRAY2BGR)
-    mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-    output_bgr = cv2.cvtColor(np.array(test_rgb), cv2.COLOR_RGB2BGR)
-
-    return rois, boxes, output_bgr, diff_bgr, mask_bgr, areas
-
-def _draw_boxes(image_bgr: np.ndarray, boxes: List[Tuple[int,int,int,int]], labels: List[str]) -> np.ndarray:
-    out = image_bgr.copy()
-    for (x, y, w, h), label in zip(boxes, labels):
-        cv2.rectangle(out, (x, y), (x + w, y + h), (0, 0, 255), 2) # Red color
-        # Put text
-        label_text = f"{label}"
-        (text_w, text_h), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-        # Draw background rect
-        cv2.rectangle(out, (x, y - text_h - 6), (x + text_w, y), (0, 0, 255), -1)
-        # Draw text
-        cv2.putText(out, label_text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
-    return out
-
-def process_and_classify_defects(template_pil: Image.Image, test_pil: Image.Image, diff_threshold: int = 0, morph_iterations: int = 2, min_area: int = MIN_CONTOUR_AREA_DEFAULT) -> Dict:
-
-    rois, boxes, out_bgr, diff_bgr, mask_bgr, areas = _find_defects(template_pil, test_pil, diff_threshold, morph_iterations, min_area)
-
-    details = []
-    labels = []
-    for idx, (roi, box, area) in enumerate(zip(rois, boxes, areas)):
-        label, conf = _classify_roi(roi)
-        labels.append(label)
-        x, y, w, h = box
-        details.append({
-            'id': idx + 1,
-            'label': label,
-            'confidence': round(float(conf), 4),
-            'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h),
-            'area': round(float(area), 2)
-        })
-
-    annotated = _draw_boxes(out_bgr, boxes, labels) if boxes else out_bgr
-
-    # --- THIS IS THE CRITICAL FIX ---
-    summary_counts = {}
-    for d in details:
-        label = d['label']
-        summary_counts[label] = summary_counts.get(label, 0) + 1
-    # --- END CRITICAL FIX ---
-
-    return {
-        'annotated_image_bgr': annotated,
-        'diff_image_bgr': diff_bgr,
-        'mask_image_bgr': mask_bgr,
-        'defects': details,
-        'summary': summary_counts # <-- It is now returned
-    }
+    # Return as bytes
+    return pdf.output(dest='S').encode('latin-1')

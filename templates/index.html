@@ -1,260 +1,131 @@
-// static/script.js
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CircuitGuard - PCB Defect Detection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    </head>
+<body>
+    <header class="header">
+        <h1>CircuitGuard</h1>
+        <p>AI-powered PCB Defect Detection</p>
+    </header>
 
-let lastAnalysisData = null; // Stores the most recent API response
+    <main class="main-content">
+        <aside class="sidebar card">
+            <h3>Detection Parameters</h3>
+            <div class="slider-group">
+                <label for="diffThreshold">Difference Threshold (<span>30</span>)</label>
+                <div class="slider-row">
+                    <input type="range" id="diffThreshold" min="0" max="255" value="30" step="1">
+                    <input type="number" id="diffThresholdNum" min="0" max="255" value="30" step="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+            <div class="slider-group">
+                <label for="minArea">Minimum ROI Area (<span>5</span> px)</label>
+                <div class="slider-row">
+                    <input type="range" id="minArea" min="1" max="500" value="5" step="1">
+                    <input type="number" id="minAreaNum" min="1" max="500" value="5" step="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+            <div class="slider-group">
+                <label for="morphIter">Noise Filter Strength (<span>2</span>)</label>
+                <div class="slider-row">
+                    <input type="range" id="morphIter" min="1" max="5" value="2" step="1">
+                    <input type="number" id="morphIterNum" min="1" max="5" value="2" step="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+        </aside>
 
-// --- Get all DOM elements ---
-const form = document.getElementById('upload-form');
-const templateInput = document.getElementById('template_image');
-const testInput = document.getElementById('test_image');
-const templatePreview = document.getElementById('template-preview');
-const testPreview = document.getElementById('test-preview');
-const resultsSection = document.getElementById('results-section');
-const resultImage = document.getElementById('result-image');
-const spinner = document.getElementById('spinner');
-const errorMessage = document.getElementById('error-message');
-const successMessage = document.getElementById('success-message');
-const outputDisplay = document.getElementById('output-display');
-const defectCount = document.getElementById('defect-count');
-const summaryBody = document.getElementById('summary-body');
-const noDefectsMessage = document.getElementById('no-defects-message');
-const downloadButtonContainer = document.getElementById('download-button-container');
-const detectButton = document.getElementById('detect-button');
-const diffImage = document.getElementById('diff-image');
-const maskImage = document.getElementById('mask-image');
+        <div class="container">
+            <section class="upload-section card">
+                <h2>Upload Images</h2>
+                <form id="upload-form">
+                    <div class="upload-grid">
+                        <div class="upload-box">
+                            <label for="template_image">Template Image</label>
+                            <input type="file" id="template_image" name="template_image" accept="image/png, image/jpeg" required>
+                            <img id="template-preview" class="preview" src="#" alt="Template Preview">
+                        </div>
+                        <div class="upload-box">
+                            <label for="test_image">Test Image</label>
+                            <input type="file" id="test_image" name="test_image" accept="image/png, image/jpeg" required>
+                            <img id="test-preview" class="preview" src="#" alt="Test Preview">
+                        </div>
+                    </div>
+                    <div class="action-container">
+                        <button type="submit" id="detect-button" class="btn-primary"> Detect Defects</button>
+                        <div id="spinner" class="spinner" style="display:none;">Processing...</div>
+                    </div>
+                </form>
+            </section>
 
-// --- Slider Value Synchronization ---
-['diffThreshold', 'minArea', 'morphIter'].forEach(id => {
-    const slider = document.getElementById(id);
-    if (!slider) return;
-    const displaySpan = slider.parentElement.parentElement.querySelector('label > span');
-    const numInput = document.getElementById(id + 'Num');
-    if (displaySpan) displaySpan.textContent = slider.value;
-    if (numInput) numInput.value = slider.value;
-    slider.addEventListener('input', () => {
-        if (displaySpan) displaySpan.textContent = slider.value;
-        if (numInput) numInput.value = slider.value;
-    });
-    if (numInput) {
-        numInput.addEventListener('input', () => {
-            const val = parseInt(numInput.value || '0', 10);
-            const min = parseInt(numInput.min, 10);
-            const max = parseInt(numInput.max, 10);
-            const clampedVal = Math.max(min, Math.min(max, val));
-            slider.value = clampedVal;
-            numInput.value = clampedVal;
-            if (displaySpan) displaySpan.textContent = String(clampedVal);
-        });
-    }
-});
+            <section id="results-section" class="results-section card" style="display:none;">
+                <h2>Analysis Results</h2>
+                <div id="error-message" class="error-message" style="display:none;"></div>
+                <div id="success-message" class="success-message" style="display:none;"></div>
 
-// --- Image Preview ---
-function setupPreview(input, preview) {
-    if (!input || !preview) return;
-    input.addEventListener('change', () => {
-        const file = input.files[0];
-        if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
-            reader.readAsDataURL(file);
-        } else { preview.src = '#'; preview.style.display = 'none'; }
-    });
-}
-setupPreview(templateInput, templatePreview);
-setupPreview(testInput, testPreview);
+                <div id="output-display" style="display:none;">
 
-// --- Main Form Submission Handler ---
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    lastAnalysisData = null;
+                    <h3>Processing Steps</h3>
+                    <div class="intermediate-images">
+                        <figure>
+                            <img id="diff-image" src="#" alt="Difference Image">
+                            <figcaption>Difference Image</figcaption>
+                        </figure>
+                        <figure>
+                            <img id="mask-image" src="#" alt="Binary Mask">
+                            <figcaption>Binary Mask</figcaption>
+                        </figure>
+                    </div>
 
-    const templateFile = templateInput.files[0];
-    const testFile = testInput.files[0];
-    if (!templateFile || !testFile) {
-        showError('⚠️ Please upload both Template and Test images!');
-        return;
-    }
+                    <h3>Visualizations</h3>
+                    <div class="stats-grid">
+                        <div id="chart-container-bar" style="display: none;">
+                            <h3>Defect Count per Class</h3>
+                            <img id="bar-chart-img" src="#" alt="Defect Count Bar Chart" style="width: 100%; height: auto;">
+                        </div>
+                        <div id="chart-container-pie" style="display: none;">
+                            <h3>Defect Class Distribution</h3>
+                            <img id="pie-chart-img" src="#" alt="Defect Distribution Pie Chart" style="width: 1E0%; height: auto;">
+                        </div>
+                    </div>
 
-    const formData = new FormData();
-    formData.append('template_image', templateFile);
-    formData.append('test_image', testFile);
-    formData.append('diffThreshold', document.getElementById('diffThreshold').value);
-    formData.append('minArea', document.getElementById('minArea').value);
-    formData.append('morphIter', document.getElementById('morphIter').value);
+                    <div id="chart-container-scatter" style="display: none;">
+                        <h3>Defect Scatter Plot (X, Y)</h3>
+                        <img id="scatter-chart-img" src="#" alt="Defect Scatter Plot" style="width: 100%; height: auto;">
+                    </div>
 
-    detectButton.disabled = true;
-    detectButton.textContent = 'Processing...';
-    spinner.style.display = 'block';
-    resultsSection.style.display = 'block';
-    outputDisplay.style.display = 'none';
-    errorMessage.style.display = 'none';
-    successMessage.style.display = 'none';
-    noDefectsMessage.style.display = 'none';
-    downloadButtonContainer.innerHTML = '';
-    summaryBody.innerHTML = '<tr><td colspan="6"><em>Processing...</em></td></tr>';
+                    <h3>Defect Summary</h3>
+                    <p><strong>Total Defects Detected:</strong> <span id="defect-count">0</span></p>
+                    <div id="summary-container">
+                        <table id="summary-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Class</th>
+                                    <th>Confidence</th>
+                                    <th>Position (x, y)</th>
+                                    <th>Size (w, h)</th>
+                                    <th>Area (px)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-body">
+                                <tr><td colspan="6"><em>Awaiting results...</em></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="no-defects-message" class="success-message" style="display:none;">✅ No defects found!</div>
 
-    try {
-        const res = await fetch('/api/detect', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || res.statusText);
-        if (!data || !data.annotated_image_url || !Array.isArray(data.defects)) {
-            throw new Error('Invalid response from server');
-        }
+                    <h3>Annotated Image</h3>
+                    <div class="result-image-container">
+                        <img id="result-image" src="#" alt="Annotated Result Image">
+                    </div>
+                    <div id="download-button-container"></div>
 
-        lastAnalysisData = data;
-        successMessage.textContent = ' Analysis Complete!';
-        successMessage.style.display = 'block';
-        outputDisplay.style.display = 'block';
+                </div> </section> </div> </main>
 
-        resultImage.src = data.annotated_image_url;
-        diffImage.src = data.diff_image_url;
-        maskImage.src = data.mask_image_url;
-
-        const defects = data.defects;
-        const total = defects.length;
-        defectCount.textContent = total;
-        summaryBody.innerHTML = '';
-
-        if (total === 0) {
-            noDefectsMessage.style.display = 'block';
-            summaryBody.innerHTML = '<tr><td colspan="6"> No defects found!</td></tr>';
-            document.getElementById('chart-container-bar').style.display = 'none';
-            document.getElementById('chart-container-pie').style.display = 'none';
-            document.getElementById("chart-container-scatter").style.display = 'none';
-        } else {
-            document.getElementById('chart-container-bar').style.display = 'block';
-            document.getElementById('chart-container-pie').style.display = 'block';
-            document.getElementById("chart-container-scatter").style.display = 'block';
-
-            document.getElementById('bar-chart-img').src = data.bar_chart_url;
-            document.getElementById('pie-chart-img').src = data.pie_chart_url;
-            document.getElementById('scatter-chart-img').src = data.scatter_chart_url;
-
-            defects.forEach(d => {
-                const row = summaryBody.insertRow();
-                row.innerHTML = `<td>${d.id}</td><td>${d.label}</td><td>${(d.confidence*100).toFixed(2)}%</td><td>(${d.x}, ${d.y})</td><td>(${d.w}, ${d.h})</td><td>${d.area}</td>`;
-            });
-        }
-
-        // --- Create Download Buttons ---
-
-        // Download Annotated Image
-        const downloadImgLink = document.createElement('a');
-        downloadImgLink.href = data.annotated_image_url;
-        const safeFilename = testFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        downloadImgLink.download = `annotated_${safeFilename}.png`;
-        downloadImgLink.textContent = '⬇️ Download Annotated Image';
-        downloadImgLink.className = 'btn-download';
-        downloadButtonContainer.appendChild(downloadImgLink);
-
-        // Download PDF Report
-        const pdfButton = document.createElement('button');
-        pdfButton.id = 'download-pdf-button';
-        pdfButton.className = 'btn-download pdf-button';
-        pdfButton.textContent = '⬇️ Download PDF Report';
-
-        pdfButton.onclick = async () => {
-            pdfButton.disabled = true;
-            pdfButton.textContent = '⏳ Generating PDF...';
-
-            try {
-                // Re-create form data for the PDF endpoint
-                const pdfFormData = new FormData();
-                pdfFormData.append('template_image', templateInput.files[0]);
-                pdfFormData.append('test_image', testInput.files[0]);
-                pdfFormData.append('diffThreshold', document.getElementById('diffThreshold').value);
-                pdfFormData.append('minArea', document.getElementById('minArea').value);
-                pdfFormData.append('morphIter', document.getElementById('morphIter').value);
-
-                const res = await fetch('/api/download_report', {
-                    method: 'POST',
-                    body: pdfFormData
-                });
-
-                if (!res.ok) {
-                    const errData = await res.json().catch(() => ({error: 'PDF generation failed on server.'}));
-                    throw new Error(errData.error || 'PDF generation failed');
-                }
-
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                const safeFilename = testInput.files[0].name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-                link.download = `CircuitGuard_Report_${safeFilename}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-
-            } catch (err) {
-                alert('Error generating PDF: ' + err.message);
-                console.error(err);
-            } finally {
-                pdfButton.disabled = false;
-                pdfButton.textContent = '⬇️ Download PDF Report';
-            }
-        };
-        downloadButtonContainer.appendChild(pdfButton);
-
-        // Download CSV Log
-        const csvButton = document.createElement('button');
-        csvButton.id = 'download-csv-button';
-        csvButton.className = 'btn-download csv-button';
-        csvButton.textContent = '⬇️ Download CSV Log';
-        // This function is now defined below
-        csvButton.onclick = () => downloadCSV(lastAnalysisData);
-        downloadButtonContainer.appendChild(csvButton);
-
-    } catch (err) {
-        showError(err.message || String(err));
-        console.error(err);
-    } finally {
-        spinner.style.display = 'none';
-        detectButton.disabled = false;
-        detectButton.textContent = 'Detect Defects';
-    }
-});
-
-// --- Helper function to show errors ---
-function showError(message) {
-    errorMessage.textContent = message;
-    errorMessage.style.display = 'block';
-    successMessage.style.display = 'none';
-    outputDisplay.style.display = 'none';
-}
-
-// --- ADDED: CSV Download Function ---
-function downloadCSV(analysisData) {
-    if (!analysisData || !analysisData.defects) {
-        alert('Run an analysis first or no defects found.');
-        return;
-    }
-
-    const defects = analysisData.defects;
-    const testImageInput = document.getElementById('test_image');
-    const testName = (testImageInput && testImageInput.files[0]) ? testImageInput.files[0].name : 'report';
-    const safeName = (testName || 'report').replace(/[^a-zA-Z0-9.\-_]/g,'_');
-    const filename = `CircuitGuard_Log_${safeName}.csv`;
-
-    const headers = ['id', 'label', 'confidence', 'x', 'y', 'w', 'h', 'area'];
-    let csvContent = headers.join(',') + '\n';
-
-    defects.forEach(d => {
-        const confidencePercent = (d.confidence * 100).toFixed(2);
-        const row = [d.id, d.label, confidencePercent, d.x, d.y, d.w, d.h, d.area];
-        csvContent += row.join(',') + '\n';
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
-}
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    </body>
+</html>
