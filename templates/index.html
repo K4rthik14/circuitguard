@@ -8,7 +8,6 @@
     <script src="{{ url_for('static', filename='jspdf.umd.min.js') }}"></script>
     <script src="{{ url_for('static', filename='html2canvas.min.js') }}"></script>
     <script src="{{ url_for('static', filename='jspdf.plugin.autotable.min.js') }}"></script>
-
 </head>
 <body>
     <header class="header">
@@ -20,21 +19,21 @@
         <aside class="sidebar card">
             <h3>Detection Parameters</h3>
             <div class="slider-group">
-                <label for="diffThreshold">Difference Threshold (<span id="diffVal">30</span>)</label>
+                <label for="diffThreshold">Difference Threshold (<span>30</span>)</label>
                 <div class="slider-row">
                     <input type="range" id="diffThreshold" min="0" max="255" value="30" step="1">
                     <input type="number" id="diffThresholdNum" min="0" max="255" value="30" step="1" inputmode="numeric" pattern="[0-9]*">
                 </div>
             </div>
             <div class="slider-group">
-                <label for="minArea">Minimum ROI Area (<span id="areaVal">5</span> px)</label>
+                <label for="minArea">Minimum ROI Area (<span>5</span> px)</label>
                 <div class="slider-row">
                     <input type="range" id="minArea" min="1" max="500" value="5" step="1">
                     <input type="number" id="minAreaNum" min="1" max="500" value="5" step="1" inputmode="numeric" pattern="[0-9]*">
                 </div>
             </div>
             <div class="slider-group">
-                <label for="morphIter">Noise Filter Strength (<span id="morphVal">2</span>)</label>
+                <label for="morphIter">Noise Filter Strength (<span>2</span>)</label>
                 <div class="slider-row">
                     <input type="range" id="morphIter" min="1" max="5" value="2" step="1">
                     <input type="number" id="morphIterNum" min="1" max="5" value="2" step="1" inputmode="numeric" pattern="[0-9]*">
@@ -71,6 +70,7 @@
                 <div id="success-message" class="success-message" style="display:none;"></div>
 
                 <div id="output-display" style="display:none;">
+
                     <h3>Processing Steps</h3>
                     <div class="intermediate-images">
                         <figure>
@@ -83,37 +83,22 @@
                         </figure>
                     </div>
 
+                    <h3>Visualizations</h3>
                     <div class="stats-grid">
-                        <div id="chart-container-bar">
+                        <div id="chart-container-bar" style="display: none;">
                             <h3>Defect Count per Class</h3>
-                            <canvas id="defectCountChart"></canvas>
-                    </div>
-
-                    <div id="chart-container-bar" style="display: none;"> <h3>Defect Count per Class</h3>
-                        <img id="bar-chart-img" src="#" alt="Defect Count Bar Chart" style="width: 100%; height: auto;">
-                    </div>
-
-                        <div id="chart-container-pie">
-                            <h3>Defect Class Distribution</h3>
-                            <canvas id="defectPieChart"></canvas>
+                            <img id="bar-chart-img" src="#" alt="Defect Count Bar Chart" style="width: 100%; height: auto;">
                         </div>
-
-                        <div id="chart-container-pie" style="display: none;"> <h3>Defect Class Distribution</h3>
+                        <div id="chart-container-pie" style="display: none;">
+                            <h3>Defect Class Distribution</h3>
                             <img id="pie-chart-img" src="#" alt="Defect Distribution Pie Chart" style="width: 100%; height: auto;">
                         </div>
                     </div>
 
-                <div id= "chart-container-scatter" style="display: none;">
-                    <h3>Defect Scatter Plot (X,  Y)</h3>
-                     <canvas id = "defectScatterPlot"></canvas>
-                </div>
-
-                <div id= "chart-container-scatter" style="display: none;">
-                    <h3>Defect Scatter Plot (X,  Y)</h3>
-                    <img id="scatter-chart-img" src="#" alt="Defect Scatter Plot" style="width: 100%; height: auto;">
-                </div>
-
-                </div>
+                    <div id="chart-container-scatter" style="display: none;">
+                        <h3>Defect Scatter Plot (X, Y)</h3>
+                        <img id="scatter-chart-img" src="#" alt="Defect Scatter Plot" style="width: 100%; height: auto;">
+                    </div>
 
                     <h3>Defect Summary</h3>
                     <p><strong>Total Defects Detected:</strong> <span id="defect-count">0</span></p>
@@ -134,18 +119,18 @@
                             </tbody>
                         </table>
                     </div>
+                    <div id="no-defects-message" class="success-message" style="display:none;">✅ No defects found!</div>
 
                     <h3>Annotated Image</h3>
                     <div class="result-image-container">
                         <img id="result-image" src="#" alt="Annotated Result Image">
                     </div>
                     <div id="download-button-container"></div>
-                    <div id="no-defects-message" class="success-message" style="display:none;">✅ No defects found!</div>
-                </div>
-            </section>
+
+                </div> </section>
         </div>
     </main>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script src="{{ url_for('static', filename='report.js') }}"></script>
 </body>
