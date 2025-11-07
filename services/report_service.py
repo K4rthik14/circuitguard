@@ -62,16 +62,16 @@ class PDFReport(FPDF):
                     self.add_page()
                     self.set_y(20) # Reset Y pos
 
-                # Get current X to center the image block if it's not side-by-side
+                # --- FIX: Respect the current X position ---
                 current_x = self.get_x()
-                if current_x < 16: # Check if we are at the left margin
-                    self.set_x((self.w - w) / 2)
+                self.image(buf, x=current_x, w=w) # Draw image at current x,y
+                # --- END FIX ---
 
-                self.image(buf, w=w)
                 self.set_font('Helvetica', 'I', 8)
 
                 # Reset X before drawing cell
                 self.set_x(current_x)
+                # Draw the cell with the same width as the image
                 self.cell(w, 10, title, 0, 1, 'C')
                 self.ln(2)
         except Exception as e:
@@ -89,16 +89,16 @@ class PDFReport(FPDF):
                     self.add_page()
                     self.set_y(20) # Reset Y pos
 
-                # Get current X to center the image block
+                # --- FIX: Respect the current X position ---
                 current_x = self.get_x()
-                if current_x < 16:
-                    self.set_x((self.w - w) / 2)
+                self.image(buf, x=current_x, w=w) # Draw image at current x,y
+                # --- END FIX ---
 
-                self.image(buf, w=w)
                 self.set_font('Helvetica', 'I', 8)
 
                 # Reset X before drawing cell
                 self.set_x(current_x)
+                # Draw the cell with the same width as the image
                 self.cell(w, 10, title, 0, 1, 'C')
                 self.ln(2)
         except Exception as e:
@@ -296,7 +296,7 @@ def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr,
         pdf.check_page_break(100) # Check for ~100mm space
         pdf.add_chapter_title('7. Annotated Image')
         annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
-        # 75% width for "medium sized", and centered
+        # 75% width for "medium sized"
         pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.75)
         pdf.ln(5)
 
