@@ -17,7 +17,6 @@ def create_app() -> Flask:
         if not os.path.exists(os.path.join(app.template_folder, 'index.html')):
             return "index.html missing", 500
         return render_template('index.html')
-
     return app
 
 if __name__ == '__main__':

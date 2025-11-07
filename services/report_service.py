@@ -5,6 +5,7 @@ import numpy as np
 import io
 import matplotlib.pyplot as plt
 import cv2
+from datetime import datetime
 
 class PDFReport(FPDF):
     """
@@ -13,23 +14,41 @@ class PDFReport(FPDF):
     def header(self):
         self.set_font('Helvetica', 'B', 16)
         self.cell(0, 10, 'CircuitGuard - Defect Analysis Report', 0, 1, 'C')
-        # Reset Y to 20mm (inside the top margin) for content
+        # Set Y to 20mm (inside the top margin) for content
         self.set_y(20)
 
     def footer(self):
-
-        #PAGE BORDER
+        # --- PAGE BORDER ---
         self.set_draw_color(0, 0, 0) # Black
         self.set_line_width(0.3)
         # Draw rect at 10mm margins (from edge of page)
         self.rect(10, 10, self.w - 20, self.h - 20)
-        # --- END NEW BORDER ---
+
+        # --- PAGE NUMBER ---
+        self.set_y(-15) # Position 15mm from bottom
+        self.set_font('Helvetica', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
     def add_chapter_title(self, title):
+        """Adds a formatted chapter title, handling page breaks."""
+        # Check if we have enough space for the title
+        if self.get_y() + 10 > self.page_break_trigger:
+            self.add_page()
+            self.set_y(20) # Reset Y pos
+
         self.set_font('Helvetica', 'B', 12)
-        self.set_fill_color(230, 230, 230)
+        self.set_fill_color(230, 230, 230) # Light gray background
         self.cell(0, 6, title, 0, 1, 'L', True)
-        self.ln(4)
+        self.ln(4) # Add a 4mm space after the title
+
+    def add_body_text(self, text):
+        """Adds a multi-line block of text, with auto-wrapping."""
+        if self.get_y() + 10 > self.page_break_trigger:
+            self.add_page()
+            self.set_y(20)
+        self.set_font('Helvetica', '', 10)
+        self.multi_cell(0, 5, text) # 5mm line height
+        self.ln(2)
 
     def add_image_from_pil(self, pil_img, title, w=190):
         """Adds a PIL Image to the PDF, handling page breaks."""
@@ -69,12 +88,21 @@ class PDFReport(FPDF):
     def add_defect_table(self, defects):
         """Adds the table of defect details, handling page breaks."""
         if not defects:
+            if self.get_y() + 10 > self.page_break_trigger:
+                self.add_page()
+                self.set_y(20)
             self.cell(0, 10, "No defects found.", 0, 1)
             return
 
         self.set_font('Helvetica', 'B', 10)
         col_width = self.epw / 6  # Effective page width / 6 columns
         headers = ['#', 'Class', 'Confidence', 'Position', 'Size', 'Area']
+
+        # Check if we need to add a page for the header
+        if self.get_y() + 7 > self.page_break_trigger:
+            self.add_page()
+            self.set_y(20)
+
         for h in headers:
             self.cell(col_width, 7, h, 1, 0, 'C')
         self.ln()
@@ -101,18 +129,31 @@ class PDFReport(FPDF):
 
 def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, bar_fig, pie_fig, scatter_fig):
     """
-    Main function to generate the PDF report in the user-specified order.
+    Main function to generate the PDF report in a professional, auto-flowing layout.
     """
     pdf = PDFReport()
     # Set margins to 15mm (for the border at 10mm)
     pdf.set_left_margin(15)
     pdf.set_right_margin(15)
+    # Enable auto page breaks with a 15mm bottom margin
     pdf.set_auto_page_break(True, margin=15)
     pdf.add_page() # Start Page 1
 
-    # --- 1. INPUT IMAGES (User Order 1) ---
+    # --- 1. PROJECT BACKGROUND (NEW) ---
     pdf.set_y(20) # Reset Y pos
-    pdf.add_chapter_title('Input Images')
+    pdf.add_chapter_title('1. Project Background')
+    background_text = (
+        "This report details the automated defect analysis performed by the CircuitGuard system. "
+        "The system employs a two-stage computer vision pipeline:\n\n"
+        "1.  **Defect Detection:** Uses OpenCV for image alignment, subtraction, and thresholding (Otsu's method) to isolate potential defect regions from a template image.\n"
+        "2.  **Defect Classification:** Each isolated defect is classified by a deep learning model. The model is an **EfficientNet-B4** classifier, trained on the DeepPCB dataset to an accuracy of **98%**, capable of identifying six distinct defect classes (short, spur, open, etc.).\n\n"
+        f"This analysis was performed on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    pdf.add_body_text(background_text)
+    pdf.ln(5)
+
+    # --- 2. INPUT IMAGES (User Order 1) ---
+    pdf.add_chapter_title('2. Input Images')
     page_width = pdf.epw / 2 - 5 # Effective page width / 2, minus gap
 
     y_start_inputs = pdf.get_y() # Get Y before images
@@ -133,11 +174,10 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
     # Set Y to the bottom of the taller image
     pdf.set_y(max(y_after_template, y_after_test))
     pdf.set_x(15) # Reset X
+    pdf.ln(5) # Add a small gap before next section
 
-    #SUMMARY & DEFECT DETAILS
-    pdf.add_page() # Start Page 2
-    pdf.set_y(20) # Reset Y pos
-    pdf.add_chapter_title('Summary')
+    # --- 3. ANALYSIS SUMMARY (User Order 2) ---
+    pdf.add_chapter_title('3. Analysis Summary')
     pdf.set_font('Helvetica', '', 11)
     pdf.cell(0, 6, f"Total Defects Found: {len(defects)}", 0, 1)
     if summary:
@@ -145,15 +185,13 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
             pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
     pdf.ln(5)
 
-    pdf.add_chapter_title('Defect Details')
+    # --- 4. DEFECT DETAILS (User Order 2, cont.) ---
+    pdf.add_chapter_title('4. Defect Details')
     pdf.add_defect_table(defects)
     pdf.ln(5)
 
-
-    # --- 3. VISUALIZATIONS (User Order 3) ---
-    pdf.add_page() # Start Page 3
-    pdf.set_y(20) # Reset Y pos
-    pdf.add_chapter_title('Visualizations')
+    # --- 5. VISUALIZATIONS (User Order 3) ---
+    pdf.add_chapter_title('5. Visualizations')
 
     y_start_charts = pdf.get_y() # Get Y before charts
     y_after_bar = y_start_charts
@@ -178,18 +216,16 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
     pdf.set_x(15) # Reset X
 
     if scatter_fig:
-        # pdf.ln(5) # <-- FIX 1: REMOVED this line to tighten layout
-        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=pdf.epw * 0.8)
+        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=pdf.epw * 0.8) # 80% width
         plt.close(scatter_fig) # Close fig individually
+    pdf.ln(5)
 
-    # --- 4. ANNOTATED IMAGE (User Order 4) ---
+    # --- 6. ANNOTATED IMAGE (User Order 4) ---
     if annotated_bgr is not None:
-        pdf.add_page() # Start Page 4
-        pdf.set_y(20) # Reset Y pos
-        pdf.add_chapter_title('Annotated Image')
+        pdf.add_chapter_title('6. Annotated Image')
         annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
-        # --- FIX 2: CHANGED to 0.6 from 0.75 to make the image smaller ---
-        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.6)
+        # Use 75% of the effective page width for "medium sized"
+        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.75)
         pdf.ln(5)
 
     # Return as bytes
