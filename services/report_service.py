@@ -17,12 +17,8 @@ class PDFReport(FPDF):
         self.set_y(20)
 
     def footer(self):
-        # Page number
-        self.set_y(-15)
-        self.set_font('Helvetica', 'I', 8)
-        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
-        # --- NEW PAGE BORDER ---
+        #PAGE BORDER
         self.set_draw_color(0, 0, 0) # Black
         self.set_line_width(0.3)
         # Draw rect at 10mm margins (from edge of page)
@@ -138,7 +134,7 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
     pdf.set_y(max(y_after_template, y_after_test))
     pdf.set_x(15) # Reset X
 
-    # --- 2. SUMMARY & DEFECT DETAILS (User Order 2) ---
+    #SUMMARY & DEFECT DETAILS
     pdf.add_page() # Start Page 2
     pdf.set_y(20) # Reset Y pos
     pdf.add_chapter_title('Summary')
