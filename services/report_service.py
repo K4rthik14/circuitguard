@@ -14,7 +14,7 @@ class PDFReport(FPDF):
     def header(self):
         self.set_font('Helvetica', 'B', 16)
         self.cell(0, 10, 'CircuitGuard - Defect Analysis Report', 0, 1, 'C')
-        # Set Y to 20mm (inside the top margin) for content
+        # Reset Y to 20mm (inside the top margin) for content
         self.set_y(20)
 
     def footer(self):
@@ -37,8 +37,8 @@ class PDFReport(FPDF):
             self.set_y(20) # Reset Y pos
 
         self.set_font('Helvetica', 'B', 12)
-        self.set_fill_color(230, 230, 230) # Light gray background
-        self.cell(0, 6, title, 0, 1, 'L', True)
+        # self.set_fill_color(230, 230, 230) # No gray background
+        self.cell(0, 6, title, 0, 1, 'L', False) # Set fill=False
         self.ln(4) # Add a 4mm space after the title
 
     def add_body_text(self, text):
@@ -61,7 +61,13 @@ class PDFReport(FPDF):
                 if self.get_y() + img_h + 10 > self.page_break_trigger:
                     self.add_page()
                     self.set_y(20) # Reset Y pos
+
+                # --- NEW: Center the image ---
+                x_pos = (self.w - w) / 2
+                self.set_x(x_pos)
                 self.image(buf, w=w)
+                # --- END NEW ---
+
                 self.set_font('Helvetica', 'I', 8)
                 self.cell(0, 10, title, 0, 1, 'C')
                 self.ln(2)
@@ -78,7 +84,13 @@ class PDFReport(FPDF):
                 if self.get_y() + img_h + 10 > self.page_break_trigger:
                     self.add_page()
                     self.set_y(20) # Reset Y pos
+
+                # --- NEW: Center the image ---
+                x_pos = (self.w - w) / 2
+                self.set_x(x_pos)
                 self.image(buf, w=w)
+                # --- END NEW ---
+
                 self.set_font('Helvetica', 'I', 8)
                 self.cell(0, 10, title, 0, 1, 'C')
                 self.ln(2)
@@ -129,54 +141,49 @@ class PDFReport(FPDF):
 
 def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, bar_fig, pie_fig, scatter_fig):
     """
-    Main function to generate the PDF report in a professional, auto-flowing layout.
+    Main function to generate the PDF report in a professional, single-column layout.
     """
     pdf = PDFReport()
-    # Set margins to 15mm (for the border at 10mm)
     pdf.set_left_margin(15)
     pdf.set_right_margin(15)
-    # Enable auto page breaks with a 15mm bottom margin
     pdf.set_auto_page_break(True, margin=15)
     pdf.add_page() # Start Page 1
 
-    # --- 1. PROJECT BACKGROUND (NEW) ---
+    # --- 1. PROJECT BACKGROUND ---
     pdf.set_y(20) # Reset Y pos
     pdf.add_chapter_title('1. Project Background')
-    background_text = (
-        "This report details the automated defect analysis performed by the CircuitGuard system. "
-        "The system employs a two-stage computer vision pipeline:\n\n"
-        "1.  **Defect Detection:** Uses OpenCV for image alignment, subtraction, and thresholding (Otsu's method) to isolate potential defect regions from a template image.\n"
-        "2.  **Defect Classification:** Each isolated defect is classified by a deep learning model. The model is an **EfficientNet-B4** classifier, trained on the DeepPCB dataset to an accuracy of **98%**, capable of identifying six distinct defect classes (short, spur, open, etc.).\n\n"
-        f"This analysis was performed on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    )
-    pdf.add_body_text(background_text)
+    pdf.set_font('Helvetica', '', 10)
+    pdf.multi_cell(0, 5, "This report details the automated defect analysis performed by the CircuitGuard system. The system employs a two-stage computer vision pipeline:")
+    pdf.ln(2)
+
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.cell(5, 5, "1. ")
+    pdf.set_font('Helvetica', '', 10)
+    pdf.multi_cell(0, 5, "**Defect Detection:** Uses OpenCV for image alignment, subtraction, and thresholding (Otsu's method) to isolate potential defect regions from a template image.")
+    pdf.ln(1)
+
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.cell(5, 5, "2. ")
+    pdf.set_font('Helvetica', '', 10)
+    pdf.multi_cell(0, 5, "**Defect Classification:** Each isolated defect is classified by an **EfficientNet-B4** deep learning model. This model was trained on the DeepPCB dataset to an accuracy of **98%** and can identify six distinct defect classes (short, spur, open, etc.).")
+    pdf.ln(4)
+
+    pdf.set_font('Helvetica', 'I', 9) # Italic for the date
+    pdf.cell(0, 5, f"Analysis performed on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 1)
     pdf.ln(5)
 
-    # --- 2. INPUT IMAGES (User Order 1) ---
+    # --- 2. INPUT IMAGES (FIX: Single column) ---
     pdf.add_chapter_title('2. Input Images')
-    page_width = pdf.epw / 2 - 5 # Effective page width / 2, minus gap
+    image_width = pdf.epw * 0.75 # 75% of page width, centered
 
-    y_start_inputs = pdf.get_y() # Get Y before images
-    y_after_template = y_start_inputs
     if template_pil:
-        pdf.add_image_from_pil(template_pil, "Template Image", w=page_width)
-        y_after_template = pdf.get_y()
-
-    # Reset Y to start, move X to the right column
-    pdf.set_y(y_start_inputs)
-    pdf.set_x(page_width + 20) # 15mm margin + page_width + 5mm gap
-    y_after_test = y_start_inputs
+        pdf.add_image_from_pil(template_pil, "Template Image", w=image_width)
 
     if test_pil:
-        pdf.add_image_from_pil(test_pil, "Test Image", w=page_width)
-        y_after_test = pdf.get_y()
+        pdf.add_image_from_pil(test_pil, "Test Image", w=image_width)
+    pdf.ln(5)
 
-    # Set Y to the bottom of the taller image
-    pdf.set_y(max(y_after_template, y_after_test))
-    pdf.set_x(15) # Reset X
-    pdf.ln(5) # Add a small gap before next section
-
-    # --- 3. ANALYSIS SUMMARY (User Order 2) ---
+    # --- 3. ANALYSIS SUMMARY ---
     pdf.add_chapter_title('3. Analysis Summary')
     pdf.set_font('Helvetica', '', 11)
     pdf.cell(0, 6, f"Total Defects Found: {len(defects)}", 0, 1)
@@ -185,47 +192,33 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
             pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
     pdf.ln(5)
 
-    # --- 4. DEFECT DETAILS (User Order 2, cont.) ---
+    # --- 4. DEFECT DETAILS ---
     pdf.add_chapter_title('4. Defect Details')
     pdf.add_defect_table(defects)
     pdf.ln(5)
 
-    # --- 5. VISUALIZATIONS (User Order 3) ---
+    # --- 5. VISUALIZATIONS (FIX: Single column) ---
     pdf.add_chapter_title('5. Visualizations')
-
-    y_start_charts = pdf.get_y() # Get Y before charts
-    y_after_bar = y_start_charts
+    chart_width = pdf.epw * 0.8 # 80% of page width
 
     if bar_fig:
-        pdf.add_image_from_fig(bar_fig, "Defect Count per Class", w=page_width)
-        y_after_bar = pdf.get_y()
+        pdf.add_image_from_fig(bar_fig, "Defect Count per Class", w=chart_width)
         plt.close(bar_fig) # Close fig individually
 
-    # Reset Y to start, move X to the right column
-    pdf.set_y(y_start_charts)
-    pdf.set_x(page_width + 20)
-    y_after_pie = y_start_charts
-
     if pie_fig:
-        pdf.add_image_from_fig(pie_fig, "Defect Class Distribution", w=page_width)
-        y_after_pie = pdf.get_y()
+        pdf.add_image_from_fig(pie_fig, "Defect Class Distribution", w=chart_width)
         plt.close(pie_fig) # Close fig individually
 
-    # Set Y to the bottom of the *taller* of the two charts
-    pdf.set_y(max(y_after_bar, y_after_pie))
-    pdf.set_x(15) # Reset X
-
     if scatter_fig:
-        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=pdf.epw * 0.8) # 80% width
+        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=chart_width)
         plt.close(scatter_fig) # Close fig individually
     pdf.ln(5)
 
-    # --- 6. ANNOTATED IMAGE (User Order 4) ---
+    # --- 6. ANNOTATED IMAGE ---
     if annotated_bgr is not None:
         pdf.add_chapter_title('6. Annotated Image')
         annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
-        # Use 75% of the effective page width for "medium sized"
-        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.75)
+        pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=image_width)
         pdf.ln(5)
 
     # Return as bytes
