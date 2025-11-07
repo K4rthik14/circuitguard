@@ -22,7 +22,7 @@ def _to_data_url(img_bgr: np.ndarray) -> str:
         raise RuntimeError('encode failed')
     return 'data:image/png;base64,' + base64.b64encode(buf.tobytes()).decode('utf-8')
 
-# --- MODIFIED CHART FUNCTIONS (Return fig object) ---
+# CHART FUNCTIONS
 
 def _create_bar_chart_fig(summary_data: dict): # Renamed and changed return
     if not summary_data: return None
@@ -68,7 +68,7 @@ def _fig_to_base64(fig):
     plt.close(fig) # Close fig to save memory
     return 'data:image/png;base64,' + img_base64
 
-# --- MODIFIED detect_defects_api ---
+# --- detect_defects_api ---
 
 @detection_bp.route('/detect', methods=['POST'])
 def detect_defects_api():
@@ -126,7 +126,7 @@ def detect_defects_api():
         logging.exception("/api/detect failed")
         return jsonify({"error": str(e)}), 500
 
-# --- ADDED NEW ENDPOINT for PDF DOWNLOAD ---
+#PDF DOWNLOAD
 
 @detection_bp.route('/download_report', methods=['POST'])
 def download_report_api():
@@ -156,6 +156,8 @@ def download_report_api():
         pdf_bytes = create_pdf_report(
             template_pil,
             test_pil,
+            result['diff_image_bgr'],    # <-- ADD THIS LINE
+            result['mask_image_bgr'],
             result['annotated_image_bgr'],
             defects_list,
             summary,
