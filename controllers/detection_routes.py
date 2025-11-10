@@ -156,8 +156,6 @@ def download_report_api():
         pdf_bytes = create_pdf_report(
             template_pil,
             test_pil,
-            result['diff_image_bgr'],    # <-- ADD THIS LINE
-            result['mask_image_bgr'],
             result['annotated_image_bgr'],
             defects_list,
             summary,

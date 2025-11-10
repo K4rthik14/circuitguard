@@ -62,16 +62,16 @@ class PDFReport(FPDF):
                     self.add_page()
                     self.set_y(20) # Reset Y pos
 
-                # --- FIX: Respect the current X position ---
+                # Get current X to center the image block if it's not side-by-side
                 current_x = self.get_x()
-                self.image(buf, x=current_x, w=w) # Draw image at current x,y
-                # --- END FIX ---
+                if current_x < 16: # Check if we are at the left margin
+                    self.set_x((self.w - w) / 2)
 
+                self.image(buf, w=w)
                 self.set_font('Helvetica', 'I', 8)
 
                 # Reset X before drawing cell
                 self.set_x(current_x)
-                # Draw the cell with the same width as the image
                 self.cell(w, 10, title, 0, 1, 'C')
                 self.ln(2)
         except Exception as e:
@@ -89,16 +89,16 @@ class PDFReport(FPDF):
                     self.add_page()
                     self.set_y(20) # Reset Y pos
 
-                # --- FIX: Respect the current X position ---
+                # Get current X to center the image block
                 current_x = self.get_x()
-                self.image(buf, x=current_x, w=w) # Draw image at current x,y
-                # --- END FIX ---
+                if current_x < 16:
+                    self.set_x((self.w - w) / 2)
 
+                self.image(buf, w=w)
                 self.set_font('Helvetica', 'I', 8)
 
                 # Reset X before drawing cell
                 self.set_x(current_x)
-                # Draw the cell with the same width as the image
                 self.cell(w, 10, title, 0, 1, 'C')
                 self.ln(2)
         except Exception as e:
@@ -152,7 +152,9 @@ class PDFReport(FPDF):
             self.add_page()
             self.set_y(20)
 
-def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr, defects, summary, bar_fig, pie_fig, scatter_fig):
+# --- MODIFIED FUNCTION SIGNATURE ---
+# Removed diff_bgr and mask_bgr
+def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, bar_fig, pie_fig, scatter_fig):
     """
     Main function to generate the PDF report in a professional, side-by-side layout.
     """
@@ -219,34 +221,11 @@ def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr,
     pdf.set_x(15) # Reset X
     pdf.ln(5)
 
-    # --- 3. PREPROCESSING STEPS (Side-by-side) ---
-    pdf.check_page_break(80) # Check for ~80mm space
-    pdf.add_chapter_title('3. Preprocessing Steps')
+    # --- 3. PREPROCESSING STEPS (REMOVED) ---
 
-    diff_pil = Image.fromarray(cv2.cvtColor(diff_bgr, cv2.COLOR_BGR2RGB))
-    mask_pil = Image.fromarray(cv2.cvtColor(mask_bgr, cv2.COLOR_BGR2RGB))
-
-    y_start_process = pdf.get_y()
-    y_after_diff = y_start_process
-    if diff_pil:
-        pdf.add_image_from_pil(diff_pil, "Difference Image", w=page_width)
-        y_after_diff = pdf.get_y()
-
-    pdf.set_y(y_start_process)
-    pdf.set_x(page_width + 20)
-    y_after_mask = y_start_process
-
-    if mask_pil:
-        pdf.add_image_from_pil(mask_pil, "Binary Mask", w=page_width)
-        y_after_mask = pdf.get_y()
-
-    pdf.set_y(max(y_after_diff, y_after_mask))
-    pdf.set_x(15)
-    pdf.ln(5)
-
-    # --- 4. ANALYSIS SUMMARY ---
+    # --- 4. ANALYSIS SUMMARY (Renumbered to 3) ---
     pdf.check_page_break(40) # Check for ~40mm space
-    pdf.add_chapter_title('4. Analysis Summary')
+    pdf.add_chapter_title('3. Analysis Summary')
     pdf.set_font('Helvetica', '', 11)
     pdf.cell(0, 6, f"Total Defects Found: {len(defects)}", 0, 1)
     if summary:
@@ -254,15 +233,15 @@ def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr,
             pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
     pdf.ln(5)
 
-    # --- 5. DEFECT DETAILS ---
+    # --- 5. DEFECT DETAILS (Renumbered to 4) ---
     pdf.check_page_break(50) # Check for table header + a few rows
-    pdf.add_chapter_title('5. Defect Details')
+    pdf.add_chapter_title('4. Defect Details')
     pdf.add_defect_table(defects)
     pdf.ln(5)
 
-    # --- 6. VISUALIZATIONS (Side-by-side) ---
+    # --- 6. VISUALIZATIONS (Renumbered to 5) ---
     pdf.check_page_break(100) # Check for ~100mm space
-    pdf.add_chapter_title('6. Visualizations')
+    pdf.add_chapter_title('5. Visualizations')
 
     y_start_charts = pdf.get_y()
     y_after_bar = y_start_charts
@@ -291,12 +270,12 @@ def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr,
         plt.close(scatter_fig)
     pdf.ln(5)
 
-    # --- 7. ANNOTATED IMAGE ---
+    # --- 7. ANNOTATED IMAGE (Renumbered to 6) ---
     if annotated_bgr is not None:
         pdf.check_page_break(100) # Check for ~100mm space
-        pdf.add_chapter_title('7. Annotated Image')
+        pdf.add_chapter_title('6. Annotated Image')
         annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
-        # 75% width for "medium sized"
+        # 75% width for "medium sized", and centered
         pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.75)
         pdf.ln(5)
 
