@@ -224,6 +224,7 @@ function showError(message) {
 }
 
 // --- ADDED: CSV Download Function ---
+// --- IMPROVED: CSV Download Function with Metadata ---
 function downloadCSV(analysisData) {
     if (!analysisData || !analysisData.defects) {
         alert('Run an analysis first or no defects found.');
@@ -231,13 +232,38 @@ function downloadCSV(analysisData) {
     }
 
     const defects = analysisData.defects;
-    const testImageInput = document.getElementById('test_image');
-    const testName = (testImageInput && testImageInput.files[0]) ? testImageInput.files[0].name : 'report';
+
+    // --- 1. Get Metadata from the DOM ---
+    const templateName = document.getElementById('template_image').files[0]?.name || 'N/A';
+    const testName = document.getElementById('test_image').files[0]?.name || 'report';
     const safeName = (testName || 'report').replace(/[^a-zA-Z0-9.\-_]/g,'_');
     const filename = `CircuitGuard_Log_${safeName}.csv`;
 
-    const headers = ['id', 'label', 'confidence', 'x', 'y', 'w', 'h', 'area'];
-    let csvContent = headers.join(',') + '\n';
+    // Read parameters from the sliders
+    const diffThreshold = document.getElementById('diffThreshold').value;
+    const minArea = document.getElementById('minArea').value;
+    const morphIter = document.getElementById('morphIter').value;
+
+    // --- 2. Build Metadata Header ---
+    // (Lines starting with '#' are often treated as comments in CSVs,
+    // so they don't break import tools)
+    let csvContent = `"# CircuitGuard Analysis Log"\n`;
+    csvContent += `"# Date: ${new Date().toISOString()}"\n`;
+    csvContent += `"# Template Image: ${templateName}"\n`;
+    csvContent += `"# Test Image: ${testName}"\n`;
+    csvContent += `"#"\n`;
+    csvContent += `"# Parameters Used:"\n`;
+    csvContent += `"# Difference Threshold: ${diffThreshold}"\n`;
+    csvContent += `"# Minimum Area: ${minArea}"\n`;
+    csvContent += `"# Noise Filter Strength: ${morphIter}"\n`;
+    csvContent += `"#"\n`;
+    csvContent += `"# Total Defects Found: ${defects.length}"\n`;
+    csvContent += `"#"\n`;
+
+    // --- 3. Build Data Table ---
+    // (I've made the headers slightly more descriptive)
+    const headers = ['defect_id', 'label', 'confidence_percent', 'x', 'y', 'w', 'h', 'area_pixels'];
+    csvContent += headers.join(',') + '\n'; // Add the data headers
 
     defects.forEach(d => {
         const confidencePercent = (d.confidence * 100).toFixed(2);
@@ -245,6 +271,7 @@ function downloadCSV(analysisData) {
         csvContent += row.join(',') + '\n';
     });
 
+    // --- 4. Create Blob and Download ---
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     if (link.download !== undefined) {
