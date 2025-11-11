@@ -37,18 +37,24 @@ This project uses a modular client-server architecture.
 circuitguard/
 ├── app.py                      # Main Flask application, starts the server
 ├── requirements.txt            # Python dependencies
+
 ├── models/
 │   └── final_model.pth         # The trained EfficientNet-B4 model
+
 ├── services/
 │   ├── defect_service.py       # Core logic (OpenCV & PyTorch pipeline)
 │   └── report_service.py       # PDF generation logic (fpdf2)
+
 ├── controllers/
 │   └── detection_routes.py     # Flask API endpoints (/api/detect, /api/download_report)
+
 ├── static/
 │   ├── script.js               # Frontend JavaScript (API calls, UI logic)
 │   └── styles.css              # All CSS for styling
+
 ├── templates/
 │   └── index.html              # The main HTML file for the UI
+
 └── src/                        # Data processing & model training scripts
     ├── eda.py
     ├── preprocess.py
