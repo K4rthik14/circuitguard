@@ -1,7 +1,11 @@
+flask
 torch==2.2.0
 torchvision==0.17.0
-efficientnet-pytorch
+timm
+opencv-python-headless
 numpy
+Pillow
 matplotlib
+fpdf2
+scikit-learn
 pandas
-opencv-python
