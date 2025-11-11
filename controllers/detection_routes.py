@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import io
 matplotlib.use('Agg')
 from services.defect_service import process_and_classify_defects, MIN_CONTOUR_AREA_DEFAULT
-from services.report_service import create_pdf_report # <-- ADDED IMPORT
+from services.report_service import create_pdf_report # This import is correct
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -22,7 +22,7 @@ def _to_data_url(img_bgr: np.ndarray) -> str:
         raise RuntimeError('encode failed')
     return 'data:image/png;base64,' + base64.b64encode(buf.tobytes()).decode('utf-8')
 
-# CHART FUNCTIONS
+# --- Chart Functions (Return fig object) ---
 
 def _create_bar_chart_fig(summary_data: dict): # Renamed and changed return
     if not summary_data: return None
@@ -51,7 +51,7 @@ def _create_scatter_chart_fig(defects: list): # Renamed and changed return
         if label not in grouped_defects: grouped_defects[label] = {'x': [], 'y': []}
         grouped_defects[label]['x'].append(d['x']); grouped_defects[label]['y'].append(d['y'])
     colors = { 'copper': '#FF9F40', 'mousebite': '#4BC0C0', 'open': '#36A2EB', 'pin-hole': '#FFCE56', 'short': '#FF6384', 'spur': '#9966FF', 'unknown': '#C9CBCF' }
-    fig, ax = plt.subplots(figsize=(5, 3))
+    fig, ax = plt.subplots(figsize=(6, 4)) # Made scatter plot shorter
     for label, coords in grouped_defects.items():
         ax.scatter(coords['x'], coords['y'], label=label, c=colors.get(label, colors['unknown']), s=30, alpha=0.7)
     ax.set_title('Defect Scatter Plot'); ax.set_xlabel('X Position (px)'); ax.set_ylabel('Y Position (px)')
@@ -81,7 +81,6 @@ def detect_defects_api():
         return jsonify({"error": "No files selected"}), 400
 
     try:
-        # Read streams and rewind for potential re-use
         template_stream = io.BytesIO(template_file.stream.read())
         test_stream = io.BytesIO(test_file.stream.read())
 
@@ -102,12 +101,10 @@ def detect_defects_api():
         summary = result.get('summary', {})
         defects_list = result.get('defects', [])
 
-        # Get fig objects
         bar_fig = _create_bar_chart_fig(summary)
         pie_fig = _create_pie_chart_fig(summary)
         scatter_fig = _create_scatter_chart_fig(defects_list)
 
-        # Convert figs to base64 for the web UI
         bar_chart_url = _fig_to_base64(bar_fig)
         pie_chart_url = _fig_to_base64(pie_fig)
         scatter_chart_url = _fig_to_base64(scatter_fig)
@@ -126,7 +123,7 @@ def detect_defects_api():
         logging.exception("/api/detect failed")
         return jsonify({"error": str(e)}), 500
 
-#PDF DOWNLOAD
+# --- download_report_api ---
 
 @detection_bp.route('/download_report', methods=['POST'])
 def download_report_api():
@@ -147,22 +144,28 @@ def download_report_api():
         summary = result.get('summary', {})
         defects_list = result.get('defects', [])
 
-        # 2. Generate the chart figures (figs, not base64)
+        # 2. Generate the chart figures
         bar_fig = _create_bar_chart_fig(summary)
         pie_fig = _create_pie_chart_fig(summary)
         scatter_fig = _create_scatter_chart_fig(defects_list)
 
         # 3. Generate the PDF
+        # --- THIS IS THE FIX ---
+        # The function call must now pass all 10 arguments
+        # in the correct order.
         pdf_bytes = create_pdf_report(
             template_pil,
             test_pil,
-            result['annotated_image_bgr'],
-            defects_list,
-            summary,
-            bar_fig,
-            pie_fig,
-            scatter_fig
+            result['diff_image_bgr'],    # <-- Arg 3 (New)
+            result['mask_image_bgr'],   # <-- Arg 4 (New)
+            result['annotated_image_bgr'],# <-- Arg 5
+            defects_list,               # <-- Arg 6
+            summary,                    # <-- Arg 7
+            bar_fig,                    # <-- Arg 8
+            pie_fig,                    # <-- Arg 9
+            scatter_fig                 # <-- Arg 10
         )
+        # --- END OF FIX ---
 
         # 4. Send the PDF as a file
         return send_file(

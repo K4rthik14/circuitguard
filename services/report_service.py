@@ -49,6 +49,7 @@ class PDFReport(FPDF):
         self.multi_cell(0, 5, text) # 5mm line height
         self.ln(2)
 
+    # --- NEW, ROBUST IMAGE FUNCTIONS ---
     def add_image_from_pil(self, pil_img, title, w=190):
         """Adds a PIL Image to the PDF, handling page breaks."""
         try:
@@ -62,20 +63,27 @@ class PDFReport(FPDF):
                     self.add_page()
                     self.set_y(20) # Reset Y pos
 
-                # Get current X to center the image block if it's not side-by-side
+                # Get current X/Y
                 current_x = self.get_x()
-                if current_x < 16: # Check if we are at the left margin
-                    self.set_x((self.w - w) / 2)
+                current_y = self.get_y()
 
-                self.image(buf, w=w)
+                # Draw the image at the current X, Y
+                self.image(buf, x=current_x, y=current_y, w=w)
+
+                # Set font for caption
                 self.set_font('Helvetica', 'I', 8)
 
-                # Reset X before drawing cell
+                # Move Y *below* the image
+                self.set_y(current_y + img_h + 2)
+                # Set X back to the image's X for centered caption
                 self.set_x(current_x)
-                self.cell(w, 10, title, 0, 1, 'C')
-                self.ln(2)
+                self.cell(w, 10, title, 0, 0, 'C') # ln=0 to not move down
+
+                # Return the total height consumed
+                return img_h + 10
         except Exception as e:
             print(f"Error adding PIL image {title}: {e}")
+            return 0
 
     def add_image_from_fig(self, fig, title, w=190):
         """Adds a Matplotlib Figure to the PDF, handling page breaks."""
@@ -83,26 +91,37 @@ class PDFReport(FPDF):
             with io.BytesIO() as buf:
                 fig.savefig(buf, format='png', bbox_inches='tight')
                 buf.seek(0)
-                img_h = (fig.get_figheight() * w) / fig.get_figwidth()
+                # Calculate image aspect ratio
+                img_props = plt.imread(buf)
+                fig_h, fig_w, _ = img_props.shape
+                img_h = (fig_h * w) / fig_w
 
                 if self.get_y() + img_h + 10 > self.page_break_trigger:
                     self.add_page()
                     self.set_y(20) # Reset Y pos
 
-                # Get current X to center the image block
+                # Get current X/Y
                 current_x = self.get_x()
-                if current_x < 16:
-                    self.set_x((self.w - w) / 2)
+                current_y = self.get_y()
 
-                self.image(buf, w=w)
+                # Reset buffer and draw image
+                buf.seek(0)
+                self.image(buf, x=current_x, y=current_y, w=w)
+
                 self.set_font('Helvetica', 'I', 8)
 
-                # Reset X before drawing cell
+                # Move Y *below* the image
+                self.set_y(current_y + img_h + 2)
+                # Set X back to the image's X for centered caption
                 self.set_x(current_x)
-                self.cell(w, 10, title, 0, 1, 'C')
-                self.ln(2)
+                self.cell(w, 10, title, 0, 0, 'C') # ln=0 to not move down
+
+                # Return the total height consumed
+                return img_h + 10
         except Exception as e:
             print(f"Error adding Matplotlib fig {title}: {e}")
+            return 0
+    # --- END NEW IMAGE FUNCTIONS ---
 
     def add_defect_table(self, defects):
         """Adds the table of defect details, handling page breaks."""
@@ -117,7 +136,6 @@ class PDFReport(FPDF):
         col_width = self.epw / 6  # Effective page width / 6 columns
         headers = ['#', 'Class', 'Confidence', 'Position', 'Size', 'Area']
 
-        # Check if we need to add a page for the header
         if self.get_y() + 7 > self.page_break_trigger:
             self.add_page()
             self.set_y(20)
@@ -128,7 +146,6 @@ class PDFReport(FPDF):
 
         self.set_font('Helvetica', '', 9)
         for d in defects:
-            # Check if we need to add a new page for the next row
             if self.get_y() + 6 > self.page_break_trigger:
                 self.add_page()
                 self.set_y(20) # Reset Y pos
@@ -152,17 +169,13 @@ class PDFReport(FPDF):
             self.add_page()
             self.set_y(20)
 
-# --- MODIFIED FUNCTION SIGNATURE ---
-# Removed diff_bgr and mask_bgr
-def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, bar_fig, pie_fig, scatter_fig):
+def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr, defects, summary, bar_fig, pie_fig, scatter_fig):
     """
     Main function to generate the PDF report in a professional, side-by-side layout.
     """
     pdf = PDFReport()
-    # Set margins to 15mm (for the border at 10mm)
     pdf.set_left_margin(15)
     pdf.set_right_margin(15)
-    # Enable auto page breaks with a 15mm bottom margin
     pdf.set_auto_page_break(True, margin=15)
     pdf.add_page() # Start Page 1
 
@@ -199,33 +212,48 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
     pdf.ln(5)
 
     # --- 2. INPUT IMAGES (Side-by-side) ---
-    pdf.check_page_break(80) # Check if we have ~80mm space for images
+    pdf.check_page_break(80)
     pdf.add_chapter_title('2. Input Images')
     page_width = pdf.epw / 2 - 5 # Effective page width / 2, minus gap
 
     y_start_inputs = pdf.get_y() # Get Y before images
-    y_after_template = y_start_inputs
+    h1 = 0
     if template_pil:
-        pdf.add_image_from_pil(template_pil, "Template Image", w=page_width)
-        y_after_template = pdf.get_y()
+        h1 = pdf.add_image_from_pil(template_pil, "Template Image", w=page_width)
 
-    pdf.set_y(y_start_inputs)
-    pdf.set_x(page_width + 20) # 15mm margin + page_width + 5mm gap
-    y_after_test = y_start_inputs
-
+    pdf.set_xy(page_width + 20, y_start_inputs) # 15mm margin + page_width + 5mm gap
+    h2 = 0
     if test_pil:
-        pdf.add_image_from_pil(test_pil, "Test Image", w=page_width)
-        y_after_test = pdf.get_y()
+        h2 = pdf.add_image_from_pil(test_pil, "Test Image", w=page_width)
 
-    pdf.set_y(max(y_after_template, y_after_test))
+    pdf.set_y(max(y_start_inputs + h1, y_start_inputs + h2) + 5) # Move Y to below the tallest image
     pdf.set_x(15) # Reset X
     pdf.ln(5)
 
-    # --- 3. PREPROCESSING STEPS (REMOVED) ---
+    # --- 3. PREPROCESSING STEPS (Side-by-side) ---
+    pdf.check_page_break(80)
+    pdf.add_chapter_title('3. Preprocessing Steps')
 
-    # --- 4. ANALYSIS SUMMARY (Renumbered to 3) ---
-    pdf.check_page_break(40) # Check for ~40mm space
-    pdf.add_chapter_title('3. Analysis Summary')
+    diff_pil = Image.fromarray(cv2.cvtColor(diff_bgr, cv2.COLOR_BGR2RGB))
+    mask_pil = Image.fromarray(cv2.cvtColor(mask_bgr, cv2.COLOR_BGR2RGB))
+
+    y_start_process = pdf.get_y()
+    h1_proc = 0
+    if diff_pil:
+        h1_proc = pdf.add_image_from_pil(diff_pil, "Difference Image", w=page_width)
+
+    pdf.set_xy(page_width + 20, y_start_process)
+    h2_proc = 0
+    if mask_pil:
+        h2_proc = pdf.add_image_from_pil(mask_pil, "Binary Mask", w=page_width)
+
+    pdf.set_y(max(y_start_process + h1_proc, y_start_process + h2_proc) + 5)
+    pdf.set_x(15)
+    pdf.ln(5)
+
+    # --- 4. ANALYSIS SUMMARY ---
+    pdf.check_page_break(40)
+    pdf.add_chapter_title('4. Analysis Summary')
     pdf.set_font('Helvetica', '', 11)
     pdf.cell(0, 6, f"Total Defects Found: {len(defects)}", 0, 1)
     if summary:
@@ -233,49 +261,47 @@ def create_pdf_report(template_pil, test_pil, annotated_bgr, defects, summary, b
             pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
     pdf.ln(5)
 
-    # --- 5. DEFECT DETAILS (Renumbered to 4) ---
-    pdf.check_page_break(50) # Check for table header + a few rows
-    pdf.add_chapter_title('4. Defect Details')
+    # --- 5. DEFECT DETAILS ---
+    pdf.check_page_break(50)
+    pdf.add_chapter_title('5. Defect Details')
     pdf.add_defect_table(defects)
     pdf.ln(5)
 
-    # --- 6. VISUALIZATIONS (Renumbered to 5) ---
-    pdf.check_page_break(100) # Check for ~100mm space
-    pdf.add_chapter_title('5. Visualizations')
+    # --- 6. VISUALIZATIONS (Side-by-side) ---
+    pdf.check_page_break(100)
+    pdf.add_chapter_title('6. Visualizations')
 
     y_start_charts = pdf.get_y()
-    y_after_bar = y_start_charts
-
+    h1_chart = 0
     if bar_fig:
-        pdf.add_image_from_fig(bar_fig, "Defect Count per Class", w=page_width)
-        y_after_bar = pdf.get_y()
-        plt.close(bar_fig) # Close fig individually
+        h1_chart = pdf.add_image_from_fig(bar_fig, "Defect Count per Class", w=page_width)
+        plt.close(bar_fig)
 
-    pdf.set_y(y_start_charts)
-    pdf.set_x(page_width + 20)
-    y_after_pie = y_start_charts
-
+    pdf.set_xy(page_width + 20, y_start_charts)
+    h2_chart = 0
     if pie_fig:
-        pdf.add_image_from_fig(pie_fig, "Defect Class Distribution", w=page_width)
-        y_after_pie = pdf.get_y()
-        plt.close(pie_fig) # Close fig individually
+        h2_chart = pdf.add_image_from_fig(pie_fig, "Defect Class Distribution", w=page_width)
+        plt.close(pie_fig)
 
-    pdf.set_y(max(y_after_bar, y_after_pie))
+    pdf.set_y(max(y_start_charts + h1_chart, y_start_charts + h2_chart) + 5)
     pdf.set_x(15)
 
     if scatter_fig:
-        pdf.check_page_break(80) # Check for space for scatter
+        pdf.check_page_break(80)
         pdf.ln(5)
+        # Center the scatter plot
+        pdf.set_x((pdf.w - (pdf.epw * 0.8)) / 2)
         pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=pdf.epw * 0.8) # 80% width
         plt.close(scatter_fig)
     pdf.ln(5)
 
-    # --- 7. ANNOTATED IMAGE (Renumbered to 6) ---
+    # --- 7. ANNOTATED IMAGE ---
     if annotated_bgr is not None:
-        pdf.check_page_break(100) # Check for ~100mm space
-        pdf.add_chapter_title('6. Annotated Image')
+        pdf.check_page_break(100)
+        pdf.add_chapter_title('7. Annotated Image')
         annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
         # 75% width for "medium sized", and centered
+        pdf.set_x((pdf.w - (pdf.epw * 0.75)) / 2) # Center the image
         pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.75)
         pdf.ln(5)
 
