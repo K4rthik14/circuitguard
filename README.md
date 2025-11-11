@@ -80,7 +80,7 @@ circuitguard/
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/circuitguard.git](https://github.com/k4rthik14/circuitguard.git)
+    git clone https://github.com/k4rthik14/circuitguard.git
     cd circuitguard
     ```
 
