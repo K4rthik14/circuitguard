@@ -9,7 +9,7 @@ The application provides a web-based user interface for uploading images, visual
 * **AI-Powered Classification:** Uses a pre-trained **EfficientNet-B4** model (98% accuracy) to classify 6 types of PCB defects (short, spur, open, copper, mousebite, pin-hole).
 * **Web Interface:** A clean, responsive UI built with HTML, CSS, and JavaScript for uploading images and viewing results.
 * **Adjustable Parameters:** Users can fine-tune the detection pipeline by adjusting the Difference Threshold, Minimum Defect Area, and Noise Filter Strength.
-* **Rich Result Visualization:** Displays the final annotated image, intermediate processing steps (Difference & Mask), and three summary charts (Bar, Pie, Scatter).
+* **Rich Result Visualization:** Displays the final annotated image and three server-generated summary charts (Bar, Pie, Scatter).
 * **Professional PDF Reporting:** Dynamically generates a multi-page PDF report on the backend, including all images, charts, and a detailed defect summary.
 * **Data Export:** Allows users to download the annotated image, the CSV log of defects, and the full PDF report.
 
@@ -18,7 +18,6 @@ The application provides a web-based user interface for uploading images, visual
 ### 🛠️ Tech Stack & Architecture
 
 This project uses a modular client-server architecture.
-
 
 
 * **Backend:**
@@ -36,3 +35,98 @@ This project uses a modular client-server architecture.
 ---
 
 ### 📁 Project Structure
+
+circuitguard/ ├── app.py # Main Flask application, starts the server ├── requirements.txt # Python dependencies (create this) ├── models/ │ └── final_model.pth # The trained EfficientNet-B4 model ├── services/ │ ├── defect_service.py # Core logic (OpenCV & PyTorch pipeline) │ └── report_service.py # PDF generation logic (fpdf2) ├── controllers/ │ └── detection_routes.py # Flask API endpoints (/api/detect, /api/download_report) ├── static/ │ ├── script.js # Frontend JavaScript (API calls, UI logic) │ └── styles.css # All CSS for styling ├── templates/ │ └── index.html # The main HTML file for the UI └── src/ # Data processing & model training scripts ├── eda.py ├── preprocess.py ├── validate_dataset.py ├── labeled_dataset.py ├── split_rois.py ├── train_model.py ├── finetune_v4.py └── evaluate_model.py
+
+---
+
+### 🚀 Getting Started
+
+#### 1. Prerequisites
+
+* Python 3.9+
+* `pip` (Python package installer)
+
+#### 2. Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/your-username/circuitguard.git](https://github.com/your-username/circuitguard.git)
+    cd circuitguard
+    ```
+
+2.  **Create a virtual environment:**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
+
+3.  **Install the required packages:**
+    *(You will need to create this `requirements.txt` file)*
+    ```bash
+    pip install -r requirements.txt
+    ```
+    *Example `requirements.txt`:*
+    ```
+    flask
+    opencv-python-headless
+    torch
+    timm
+    numpy
+    Pillow
+    matplotlib
+    fpdf2
+    ```
+
+#### 3. Usage
+
+1.  **Run the Flask application:**
+    ```bash
+    python app.py
+    ```
+
+2.  **Open the application:**
+    Open your web browser and go to:
+    `http://127.0.0.1:5000`
+
+---
+
+### 📦 Core Pipeline (`services/defect_service.py`)
+
+The defect detection and classification pipeline is a two-stage process:
+
+1.  **Stage 1: Defect Detection (OpenCV)**
+    * Loads the template and test images as grayscale PIL images.
+    * Converts them to NumPy arrays and resizes the test image to match the template.
+    * Performs `cv2.absdiff` to get the raw difference image.
+    * Applies Otsu's thresholding (`cv2.threshold`) to create a binary mask.
+    * Cleans the mask using morphological operations (`cv2.morphologyEx`).
+    * Finds all contours with `cv2.findContours`.
+
+2.  **Stage 2: Defect Classification (PyTorch)**
+    * Filters contours by a minimum area.
+    * For each valid contour, it crops the Region of Interest (ROI) from the *original* test image.
+    * Loads the pre-trained `EfficientNet-B4` model (`final_model.pth`).
+    * The ROI is resized, transformed, and passed to the model for inference.
+    * The model returns a class label (e.g., 'short', 'spur') and a confidence score.
+    * The final annotated image is drawn using `cv2.rectangle` and `cv2.putText`.
+
+---
+
+### 🌐 API Endpoints (`controllers/detection_routes.py`)
+
+The backend exposes two main API endpoints:
+
+* **`POST /api/detect`**
+    * **Purpose:** Runs the main analysis and returns JSON data for the web UI.
+    * **Form Data:** `template_image`, `test_image`, `diffThreshold`, `minArea`, `morphIter`.
+    * **Returns:** A JSON object containing:
+        * `annotated_image_url`, `diff_image_url`, `mask_image_url` (as Base64 strings).
+        * `bar_chart_url`, `pie_chart_url`, `scatter_chart_url` (as Base64 strings).
+        * `defects`: A list of defect objects with coordinates, labels, and confidence.
+
+* **`POST /api/download_report`**
+    * **Purpose:** Runs a full analysis and generates a downloadable multi-page PDF report.
+    * **Form Data:** `template_image`, `test_image`, `diffThreshold`, `minArea`, `morphIter`.
+    * **Process:** Re-runs the analysis, calls `create_pdf_report` from `report_service.py`, and passes all the raw data (PIL images, defect list, Matplotlib figures) to it.
+    * **Returns:** A `application/pdf` file as an attachment.
