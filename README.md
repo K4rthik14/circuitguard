@@ -66,17 +66,6 @@ circuitguard/ ├── app.py # Main Flask application, starts the server ├�
     ```bash
     pip install -r requirements.txt
     ```
-    *Example `requirements.txt`:*
-    ```
-    flask
-    opencv-python-headless
-    torch
-    timm
-    numpy
-    Pillow
-    matplotlib
-    fpdf2
-    ```
 
 #### 3. Usage
 
