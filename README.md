@@ -34,6 +34,8 @@ This project uses a modular client-server architecture.
 
 ---
 
+
+``` bash
 circuitguard/
 ├── app.py                      # Main Flask application, starts the server
 ├── requirements.txt            # Python dependencies
@@ -64,7 +66,7 @@ circuitguard/
     ├── train_model.py
     ├── finetune_v4.py
     └── evaluate_model.py
-
+```
 
 
 ### 🚀 Getting Started
