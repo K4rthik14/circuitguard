@@ -91,7 +91,6 @@ circuitguard/
     ```
 
 3.  **Install the required packages:**
-    *(You will need to create this `requirements.txt` file)*
     ```bash
     pip install -r requirements.txt
     ```
