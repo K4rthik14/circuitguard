@@ -30,7 +30,7 @@ This project uses a modular client-server architecture.
 * **Frontend:**
     * **Structure:** **HTML5**
     * **Styling:** **CSS3**
-    * **Interactivity:** **JavaScript (ES6+)** (using `fetch` for API calls)
+    * **Interactivity:** **JavaScript** (using `fetch` for API calls)
 
 ---
 
@@ -74,13 +74,13 @@ circuitguard/
 #### 1. Prerequisites
 
 * Python 3.9+
-* `pip` (Python package installer)
+* `pip`
 
 #### 2. Installation
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/circuitguard.git](https://github.com/your-username/circuitguard.git)
+    git clone [https://github.com/your-username/circuitguard.git](https://github.com/k4rthik14/circuitguard.git)
     cd circuitguard
     ```
 
