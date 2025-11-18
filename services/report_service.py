@@ -230,7 +230,7 @@ def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr,
     pdf.set_x(15) # Reset X
     pdf.ln(5)
 
-    # --- 3. PREPROCESSING STEPS (Side-by-side) ---
+    # --- 3. PREPROCESSING STEP
     pdf.check_page_break(80)
     pdf.add_chapter_title('3. Preprocessing Steps')
 
@@ -251,7 +251,7 @@ def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr,
     pdf.set_x(15)
     pdf.ln(5)
 
-    # --- 4. ANALYSIS SUMMARY ---
+    # ANALYSIS SUMMARY
     pdf.check_page_break(40)
     pdf.add_chapter_title('4. Analysis Summary')
     pdf.set_font('Helvetica', '', 11)
@@ -261,13 +261,13 @@ def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr,
             pdf.cell(0, 6, f"  - {label.capitalize()}: {count}", 0, 1)
     pdf.ln(5)
 
-    # --- 5. DEFECT DETAILS ---
+    #DEFECT DETAILS
     pdf.check_page_break(50)
     pdf.add_chapter_title('5. Defect Details')
     pdf.add_defect_table(defects)
     pdf.ln(5)
 
-    # --- 6. VISUALIZATIONS (Side-by-side) ---
+    # VISUALIZATIONS
     pdf.check_page_break(100)
     pdf.add_chapter_title('6. Visualizations')
 
@@ -291,19 +291,18 @@ def create_pdf_report(template_pil, test_pil, diff_bgr, mask_bgr, annotated_bgr,
         pdf.ln(5)
         # Center the scatter plot
         pdf.set_x((pdf.w - (pdf.epw * 0.8)) / 2)
-        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=pdf.epw * 0.8) # 80% width
+        pdf.add_image_from_fig(scatter_fig, "Defect Scatter Plot", w=pdf.epw * 0.8)
         plt.close(scatter_fig)
     pdf.ln(5)
 
-    # --- 7. ANNOTATED IMAGE ---
+    # ANNOTATED IMAGE
     if annotated_bgr is not None:
         pdf.check_page_break(100)
         pdf.add_chapter_title('7. Annotated Image')
         annotated_pil = Image.fromarray(cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB))
-        # 75% width for "medium sized", and centered
         pdf.set_x((pdf.w - (pdf.epw * 0.75)) / 2) # Center the image
         pdf.add_image_from_pil(annotated_pil, "Final Annotated Result", w=pdf.epw * 0.75)
         pdf.ln(5)
 
-    # Return as bytes
+
     return pdf.output()
