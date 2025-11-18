@@ -64,7 +64,6 @@ circuitguard/
     ├── labeled_dataset.py
     ├── split_rois.py
     ├── train_model.py
-    ├── finetune_v4.py
     └── evaluate_model.py
 ```
 
