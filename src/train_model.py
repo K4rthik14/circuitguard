@@ -72,7 +72,7 @@ def train_and_validate(project_root: str) -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     data_dir = os.path.join(project_root, "outputs", "labeled_rois_jpeg")
-    
+
     #Create a new timestamped folder
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     save_dir = os.path.join(project_root, "models", f"run_{timestamp}")
@@ -141,7 +141,7 @@ def train_and_validate(project_root: str) -> None:
 
         if epoch_val_acc > best_val_acc:
             best_val_acc = epoch_val_acc
-            
+
             # Save a new file for each best model
             best_path = os.path.join(save_dir, f"epoch_{epoch:02d}_acc_{best_val_acc:.2f}.pth")
             torch.save(model.state_dict(), best_path)
@@ -162,7 +162,7 @@ def train_and_validate(project_root: str) -> None:
     if not os.path.exists(best_path):
         print("\nNo best model was saved. Skipping plots and confusion matrix.")
         return
-        
+
     model.load_state_dict(torch.load(best_path, map_location=device))
     model.eval()
 
