@@ -177,4 +177,9 @@ The backend exposes two main API endpoints:
     * **Form Data:** `template_image`, `test_image`, `diffThreshold`, `minArea`, `morphIter`.
     * **Process:** Re-runs the analysis, calls `create_pdf_report` from `report_service.py`, and passes all the raw data (PIL images, defect list, Matplotlib figures) to it.
     * **Returns:** A `application/pdf` file as an attachment.
+### 📸 User Interface
 
+The web interface allows users to easily upload PCB images and view defect predictions in real-time.
+
+![Web UI Demo](assets/ui_demo.png)
+*Figure 2: The CircuitGuard Web Dashboard displaying detected defects.*
