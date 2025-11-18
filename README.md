@@ -64,8 +64,8 @@ circuitguard/
     ├── labeled_dataset.py
     ├── split_rois.py
     ├── train_model.py
-    ├── finetune_v4.py
-    └── evaluate_model.py
+    ├── evaluate_model.py
+    └── defect_classify.py 
 ```
 
 
@@ -152,6 +152,12 @@ All scripts inside the `src/` directory are meant for **data preprocessing, mode
 - **evaluate_model.py**  
   Loads the final trained model and evaluates it on a separate held-out test set.  
   Generates the **confusion matrix**, **classification report**, and verifies the model’s accuracy (≈98%).
+
+  ### 📊 Model Performance
+Our EfficientNet-B4 model achieved **98% accuracy** on the test set.
+
+![Confusion Matrix](models/confusion_matrix_final98.png)
+*Figure 1: Confusion Matrix showing robust classification across all 6 defect types.*
 
 
 ### 🌐 API Endpoints (`controllers/detection_routes.py`)
