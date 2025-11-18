@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import io
 matplotlib.use('Agg')
 from services.defect_service import process_and_classify_defects, MIN_CONTOUR_AREA_DEFAULT
-from services.report_service import create_pdf_report # This import is correct
+from services.report_service import create_pdf_report
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -22,18 +22,18 @@ def _to_data_url(img_bgr: np.ndarray) -> str:
         raise RuntimeError('encode failed')
     return 'data:image/png;base64,' + base64.b64encode(buf.tobytes()).decode('utf-8')
 
-# --- Chart Functions (Return fig object) ---
+# Chart Functions
 
-def _create_bar_chart_fig(summary_data: dict): # Renamed and changed return
+def _create_bar_chart_fig(summary_data: dict):
     if not summary_data: return None
     labels = list(summary_data.keys()); counts = list(summary_data.values())
     fig, ax = plt.subplots(figsize=(5, 4))
     ax.bar(labels, counts, color='#36A2EB', edgecolor='#36A2EB', linewidth=1, alpha=0.6)
     ax.set_ylabel('Defect Count'); ax.set_title('Defect Count per Class')
     plt.xticks(rotation=45, ha='right')
-    return fig # <-- RETURN FIG
+    return fig
 
-def _create_pie_chart_fig(summary_data: dict): # Renamed and changed return
+def _create_pie_chart_fig(summary_data: dict):
     if not summary_data: return None
     labels = list(summary_data.keys()); counts = list(summary_data.values())
     color_map = { 'copper': '#FF9F40', 'mousebite': '#4BC0C0', 'open': '#36A2EB', 'pin-hole': '#FFCE56', 'short': '#FF6384', 'spur': '#9966FF', 'unknown': '#C9CBCF' }
@@ -43,7 +43,7 @@ def _create_pie_chart_fig(summary_data: dict): # Renamed and changed return
     ax.axis('equal'); ax.set_title('Defect Class Distribution')
     return fig # <-- RETURN FIG
 
-def _create_scatter_chart_fig(defects: list): # Renamed and changed return
+def _create_scatter_chart_fig(defects: list):
     if not defects: return None
     grouped_defects = {}
     for d in defects:
@@ -56,7 +56,7 @@ def _create_scatter_chart_fig(defects: list): # Renamed and changed return
         ax.scatter(coords['x'], coords['y'], label=label, c=colors.get(label, colors['unknown']), s=30, alpha=0.7)
     ax.set_title('Defect Scatter Plot'); ax.set_xlabel('X Position (px)'); ax.set_ylabel('Y Position (px)')
     ax.legend(loc='best'); ax.invert_yaxis(); ax.grid(True, linestyle='--', alpha=0.5)
-    return fig # <-- RETURN FIG
+    return fig
 
 def _fig_to_base64(fig):
     """Helper to convert fig to base64 for JSON and close it."""
@@ -68,7 +68,7 @@ def _fig_to_base64(fig):
     plt.close(fig) # Close fig to save memory
     return 'data:image/png;base64,' + img_base64
 
-# --- detect_defects_api ---
+# --- detect_defects_api
 
 @detection_bp.route('/detect', methods=['POST'])
 def detect_defects_api():
@@ -123,7 +123,7 @@ def detect_defects_api():
         logging.exception("/api/detect failed")
         return jsonify({"error": str(e)}), 500
 
-# --- download_report_api ---
+# --- download_report_api
 
 @detection_bp.route('/download_report', methods=['POST'])
 def download_report_api():
@@ -149,25 +149,23 @@ def download_report_api():
         pie_fig = _create_pie_chart_fig(summary)
         scatter_fig = _create_scatter_chart_fig(defects_list)
 
-        # 3. Generate the PDF
-        # --- THIS IS THE FIX ---
-        # The function call must now pass all 10 arguments
-        # in the correct order.
+        # Generate the PDF
+
         pdf_bytes = create_pdf_report(
             template_pil,
             test_pil,
-            result['diff_image_bgr'],    # <-- Arg 3 (New)
-            result['mask_image_bgr'],   # <-- Arg 4 (New)
-            result['annotated_image_bgr'],# <-- Arg 5
-            defects_list,               # <-- Arg 6
-            summary,                    # <-- Arg 7
-            bar_fig,                    # <-- Arg 8
-            pie_fig,                    # <-- Arg 9
-            scatter_fig                 # <-- Arg 10
+            result['diff_image_bgr'],
+            result['mask_image_bgr'],
+            result['annotated_image_bgr'],
+            defects_list,
+            summary,
+            bar_fig,
+            pie_fig,
+            scatter_fig
         )
-        # --- END OF FIX ---
 
-        # 4. Send the PDF as a file
+
+        #Send the PDF as a file
         return send_file(
             io.BytesIO(pdf_bytes),
             mimetype='application/pdf',
