@@ -1,8 +1,8 @@
-// static/script.js
+
 
 let lastAnalysisData = null; // Stores the most recent API response
 
-// --- Get all DOM elements ---
+//Get all DOM elements
 const form = document.getElementById('upload-form');
 const templateInput = document.getElementById('template_image');
 const testInput = document.getElementById('test_image');
@@ -22,7 +22,7 @@ const detectButton = document.getElementById('detect-button');
 const diffImage = document.getElementById('diff-image');
 const maskImage = document.getElementById('mask-image');
 
-// --- Slider Value Synchronization ---
+//Slider Value Synchronization
 ['diffThreshold', 'minArea', 'morphIter'].forEach(id => {
     const slider = document.getElementById(id);
     if (!slider) return;
@@ -62,7 +62,7 @@ function setupPreview(input, preview) {
 setupPreview(templateInput, templatePreview);
 setupPreview(testInput, testPreview);
 
-// --- Main Form Submission Handler ---
+//Main Form Submission Handler
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     lastAnalysisData = null;
@@ -135,7 +135,7 @@ form.addEventListener('submit', async (e) => {
             });
         }
 
-        // --- Create Download Buttons ---
+        // To create Download Button
 
         // Download Annotated Image
         const downloadImgLink = document.createElement('a');
@@ -215,7 +215,7 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
-// --- Helper function to show errors ---
+//Helper function
 function showError(message) {
     errorMessage.textContent = message;
     errorMessage.style.display = 'block';
@@ -223,8 +223,7 @@ function showError(message) {
     outputDisplay.style.display = 'none';
 }
 
-// --- ADDED: CSV Download Function ---
-// --- IMPROVED: CSV Download Function with Metadata ---
+//CSV Download Function
 function downloadCSV(analysisData) {
     if (!analysisData || !analysisData.defects) {
         alert('Run an analysis first or no defects found.');
@@ -233,7 +232,7 @@ function downloadCSV(analysisData) {
 
     const defects = analysisData.defects;
 
-    // --- 1. Get Metadata from the DOM ---
+    //Get Metadata from the DOM ---
     const templateName = document.getElementById('template_image').files[0]?.name || 'N/A';
     const testName = document.getElementById('test_image').files[0]?.name || 'report';
     const safeName = (testName || 'report').replace(/[^a-zA-Z0-9.\-_]/g,'_');
@@ -244,9 +243,8 @@ function downloadCSV(analysisData) {
     const minArea = document.getElementById('minArea').value;
     const morphIter = document.getElementById('morphIter').value;
 
-    // --- 2. Build Metadata Header ---
-    // (Lines starting with '#' are often treated as comments in CSVs,
-    // so they don't break import tools)
+    //Build Metadata Header
+
     let csvContent = `"# CircuitGuard Analysis Log"\n`;
     csvContent += `"# Date: ${new Date().toISOString()}"\n`;
     csvContent += `"# Template Image: ${templateName}"\n`;
@@ -260,8 +258,7 @@ function downloadCSV(analysisData) {
     csvContent += `"# Total Defects Found: ${defects.length}"\n`;
     csvContent += `"#"\n`;
 
-    // --- 3. Build Data Table ---
-    // (I've made the headers slightly more descriptive)
+    //Build Data Table
     const headers = ['defect_id', 'label', 'confidence_percent', 'x', 'y', 'w', 'h', 'area_pixels'];
     csvContent += headers.join(',') + '\n'; // Add the data headers
 
@@ -271,7 +268,7 @@ function downloadCSV(analysisData) {
         csvContent += row.join(',') + '\n';
     });
 
-    // --- 4. Create Blob and Download ---
+    //Create Blob and Download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     if (link.download !== undefined) {
