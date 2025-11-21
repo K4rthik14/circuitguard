@@ -64,8 +64,7 @@ circuitguard/
     ├── labeled_dataset.py
     ├── split_rois.py
     ├── train_model.py
-    ├── evaluate_model.py
-    └── defect_classify.py 
+    └── evaluate_model.py
 ```
 
 
@@ -132,32 +131,30 @@ The defect detection and classification pipeline is a two-stage process:
 
 ### 🔬 Model Training Pipeline (The `src/` Directory)
 
-This repository includes the complete machine learning pipeline used to create the `final_model.pth`.  
+This repository includes the complete machine learning pipeline used to create the `final_model.pth`.
 All scripts inside the `src/` directory are meant for **data preprocessing, model training, fine-tuning, and evaluation**, not for running the web application.
 
-- **validate_dataset.py**  
+- **validate_dataset.py**
   Checks the raw dataset for missing or corrupted files and generates a clean, validated file index.
 
-- **labeled_dataset.py**  
-  Loads the ground-truth annotation files and crops the labeled defect ROIs (Regions of Interest) from the test images.  
+- **labeled_dataset.py**
+  Loads the ground-truth annotation files and crops the labeled defect ROIs (Regions of Interest) from the test images.
   Each cropped ROI is automatically sorted into its corresponding defect class folder (e.g., *open*, *short*, *spur*, etc.).
 
-- **split_rois.py**  
+- **split_rois.py**
   Randomly splits the labeled ROI images into **train** and **validation** sets to prepare balanced datasets for training.
 
-- **train_model.py**  
-  Loads the training and validation datasets, applies data augmentation techniques (rotations, flips, normalization), and trains the EfficientNet-B4 classifier.  
+- **train_model.py**
+  Loads the training and validation datasets, applies data augmentation techniques (rotations, flips, normalization), and trains the EfficientNet-B4 classifier.
   The script automatically saves the **best-performing model checkpoint** based on validation accuracy.
 
-- **evaluate_model.py**  
-  Loads the final trained model and evaluates it on a separate held-out test set.  
+- **evaluate_model.py**
+  Loads the final trained model and evaluates it on a separate held-out test set.
   Generates the **confusion matrix**, **classification report**, and verifies the model’s accuracy (≈98%).
 
-  ### 📊 Model Performance
-Our EfficientNet-B4 model achieved **98% accuracy** on the test set.
+- **defect_classify.py**
+  Processes the raw dataset to crop and sort defect ROIs into class-specific folders for training.
 
-![Confusion Matrix](models/confusion_matrix_final98.png)
-*Figure 1: Confusion Matrix showing robust classification across all 6 defect types.*
 
 
 ### 🌐 API Endpoints (`controllers/detection_routes.py`)
@@ -177,9 +174,4 @@ The backend exposes two main API endpoints:
     * **Form Data:** `template_image`, `test_image`, `diffThreshold`, `minArea`, `morphIter`.
     * **Process:** Re-runs the analysis, calls `create_pdf_report` from `report_service.py`, and passes all the raw data (PIL images, defect list, Matplotlib figures) to it.
     * **Returns:** A `application/pdf` file as an attachment.
-### 📸 User Interface
 
-The web interface allows users to easily upload PCB images and view defect predictions in real-time.
-
-![Web UI Demo](assets/ui_demo.png)
-*Figure 2: The CircuitGuard Web Dashboard displaying detected defects.*
